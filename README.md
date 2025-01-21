@@ -10,9 +10,12 @@
 - get_pass_rutreker() (логин для рутрекера)
 - get_login_rutreker() (логин для рутрекера)
 - get_pass_defualt_torent_client() (по умолчанию пытается использовать transmission с логином transmission)
-Методы должны вызывать метод __decrypt_data(key: bytes, data: bytes) из файла crypt_token.py и возвращать ее результат
+
+Методы должны вызывать метод __decrypt_data(key: bytes, data: bytes) из файла crypt_token.py и возвращать его результат
 
 Для генерации key и data нужно использовать файл crypt_token.py
+
+Файл должен содержать переменную типа proxy: str = 'http://127.0.0.1:10809'
 
 ## Команда проекта
  - ушла спать:/

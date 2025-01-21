@@ -7,11 +7,19 @@ class TorrentManager(ABC):
     """Базовый интерфейс для торрент-менеджеров"""
 
     @abstractmethod
-    def __init__(self, host, port, username, password, protocol):
+    def __init__(self, host: str, port: int, username: str, password: str, protocol: str):
+        """
+        Абстрактный метод конструктора. Параметры:
+        :param host: str — Хост для подключения.
+        :param port: int — Порт для подключения.
+        :param username: str — Имя пользователя.
+        :param password: str — Пароль пользователя.
+        :param protocol: str — Протокол соединения.
+        """
         pass
 
     @abstractmethod
-    def start_download(self, torrent_url: str):
+    def start_download(self, magnet_url: str):
         pass
 
     @abstractmethod
@@ -40,19 +48,20 @@ class TransmissionManager(TorrentManager):
         '''
         if not id:
             id = self.__id_last
-        print(self.__client.get_torrent(id).progress / 100)
+        print(f'{id} progress download{self.__client.get_torrent(id).progress / 100}')
         return self.__client.get_torrent(id).progress / 100
 
     def stop_download(self, id: int = None):
         self.__client.stop_torrent(id)
+
 
 class QBittorrentManager(TorrentManager):
     def __init__(self, host, port, username, password):
         self.__client = QBittorrentClient(host=host, port=port, username=username, password=password)
         self.__client.auth_log_in()
 
-    def start_download(self, torrent_url: str):
-        self.__client.torrents_add(urls=torrent_url)
+    def start_download(self, magnet_url: str):
+        self.__client.torrents_add(urls=magnet_url)
 
     def get_progress(self, id: int = None) -> float:
         return -1.

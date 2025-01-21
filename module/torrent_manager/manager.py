@@ -1,15 +1,15 @@
-from torrent_manager.__torrent_manager import TorrentManager
+from .__torrent_manager import TorrentManager
 
 __name_mapping = {
-    "transmission": "torrent_manager.__torrent_manager.TransmissionManager",
-    "qbittorrent": "torrent_manager.__torrent_manager.QBittorrentManager",
+    "transmission": "module.torrent_manager.__torrent_manager.TransmissionManager",
+    "qbittorrent": "module.torrent_manager.__torrent_manager.QBittorrentManager",
 }
 
 
 def create_manager(client_type: str, host: str, port: int, username: str, password: str, protocol: str = 'http') \
         -> TorrentManager:
     """
-    Фабричный метод для создания менеджеров через name mapping.
+    Фабричный метод для создания менеджеров.
 
     :param client_type: Тип клиента, может быть "transmission" или "qbittorrent".
     :param host: Хост для подключения к торрент-клиенту.

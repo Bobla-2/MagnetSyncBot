@@ -8,4 +8,4 @@ if __name__ == '__main__':
     try:
         tg_bot.run()
     except Exception as e:
-        print("tg_bot.run()")
+        print(f"tg_bot.run() ERROR {e}")

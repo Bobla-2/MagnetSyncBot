@@ -3,7 +3,7 @@ import urllib.parse
 from bs4 import BeautifulSoup
 from requests import Response
 
-from rutracker_api.exceptions import AuthorizationException
+from module.rutracker.rutracker_api.exceptions import AuthorizationException
 
 
 def format_size(size_in_bytes):

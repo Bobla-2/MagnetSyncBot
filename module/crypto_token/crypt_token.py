@@ -11,6 +11,7 @@ def generate_dynamic_key():
     return dynamic_part
 
 def generate_full_key():
+    """Генерирует ключ."""
     dynamic_part = generate_dynamic_key()
     key = Fernet.generate_key()
     full_key = dynamic_part + key

@@ -1,11 +1,11 @@
 from telegram import ForceReply, Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from telegram.error import NetworkError
-from torrent_manager.manager import create_manager
+from module.torrent_manager.manager import create_manager
 from typing import List, Optional, Union
 from enum import Enum, auto
 from module.crypto_token.config import get_pass_defualt_torent_client
-from rutrecker import Rutracker, TorrentInfo
+from module.rutracker.rutrecker import Rutracker, TorrentInfo
 import asyncio
 
 
@@ -318,7 +318,7 @@ class ProgressBar:
         progress = 0.
         progress_bar = None
         while progress < 1.:
-            progress = self.__progress_value()
+
             progress_bar = self.__generate_progress_bar(progress)
             if self.state == 0:
                 self.btn = None
@@ -342,7 +342,8 @@ class ProgressBar:
 
                 except NetworkError as e:
                     print(f"Ошибка сети: {e}")
-            await asyncio.sleep(5)
+            await asyncio.sleep(3)
+            progress = self.__progress_value()
         try:
             if self.state:
                 await self.__context.bot.edit_message_text(chat_id=self.__chat_id, message_id=self.__msg.message_id,

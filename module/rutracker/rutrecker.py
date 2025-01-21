@@ -1,12 +1,15 @@
 import requests
 from bs4 import BeautifulSoup
-from rutracker_api.main import RutrackerApi
-import re
+from module.rutracker.rutracker_api.main import RutrackerApi
 import time
 from module.crypto_token.config import get_pass_rutreker, get_login_rutreker, proxy
-from datetime import datetime
 
 class TorrentInfo:
+    """
+    Класс объекта торрента содержащего все данные о торренте
+
+    имеет несколько @property, берущих данные со странници рутрекера через парсер RutrackerParserPage
+    """
     __slots__ = ('category', 'name', 'year', 'url', 'magnet', '__parser', 'id_torrent')
     def __init__(self, category: str = None,
                  name: str = None,
@@ -47,48 +50,75 @@ def singleton(cls):
 
 @singleton
 class Rutracker:
+    """
+    Класс (абстракция на _Rutracker) для инициализации использует данные из crypto_token.config
+
+    добавляет проверку на корректность инициализации при использовании get_anime_list
+    в случае неудачи возвращает список с TorrentInfo содержащим сообщение об ошибке
+    """
     def __init__(self):
-        self.__rutracker = _RutrackerSerch(
+        self.__rutracker = _Rutracker(
             username=get_login_rutreker(),
             password=get_pass_rutreker(),
-            proxy=proxy
-        )
+            proxy=proxy)
+
     def get_anime_list(self, search_request: str) -> list[TorrentInfo]:
-        torrents_search = self.__rutracker.get_search_list(search_request, 1)
-        return torrents_search
+        if self.__rutracker.connected:
+            torrents_search = self.__rutracker.get_search_list(search_request, 1)
+            return torrents_search
+        return [TorrentInfo(name="Ошибка подключений к рутрекеру. Попробуйте зарегистрироваться заново")]
 
 
+class _Rutracker:
+    '''
+    Класс для взаимодействия с API Rutracker и выполнения поиска торрентов.
 
-class _RutrackerSerch:
+    Атрибуты:
+    ----------
+    connected : bool
+        Флаг, указывающий, успешно ли выполнено подключение к Rutracker.
+
+    Методы:
+    -------
+    __init__(username: str, password: str, proxy: str):
+        Выполняет авторизацию на Rutracker с использованием предоставленных учетных данных и прокси.
+
+    get_search_list(search_request: str, page_deepth: int = 2) -> list[TorrentInfo]:
+        Выполняет поиск торрентов на Rutracker по заданному запросу. Возвращает список объектов `TorrentInfo`.
+    '''
     def __init__(self, username, password, proxy):
+        """
+        Инициализирует объект _Rutracker, выполняя авторизацию на Rutracker.
+        """
         retries = 3  # Количество попыток
+        self.connected = False
         for attempt in range(retries):
             try:
-                self.rutracker = RutrackerApi(proxy=proxy)
-                self.rutracker.login(username, password)
+                self.__rutracker = RutrackerApi(proxy=proxy)
+                self.__rutracker.login(username, password)
+                self.connected = True
                 return
             except Exception as e:
                 print(f"Попытка {attempt + 1} из {retries}. Ошибка сети: ПОДКЛЮЧЕНИЯ Rutracker {e}.")
                 time.sleep(1)
-        print(f"Не удалось загрузить страницу после {retries} попыток.")
+        print(f"Не удалось загрузить RutrackerApi после {retries} попыток.")
 
-    def get_search_list(self, search_request, page_deepth=2) -> list[TorrentInfo]:
+
+
+    def get_search_list(self, search_request, page_deepth=1) -> list[TorrentInfo]:
         # anime_categories = ['Аниме (DVD Video)', 'Аниме (SD Video)', 'Аниме (HD Video)']
         page = 1
-        search = self.rutracker.search(search_request, "desc", "size", page)
+        search = self.__rutracker.search(search_request, "desc", "size", page)
         search_results = search['result']
         if search['total_pages'] > search['page'] and search['page'] != page_deepth:
             page += 1
-            search = self.rutracker.search(search_request, "desc", "size", page)
+            search = self.__rutracker.search(search_request, "desc", "size", page)
             search_results += search['result']
         torrent_list = [TorrentInfo(name=res["title"],
                                     category=res["category"],
                                     url=res["url"]) for res in search_results]
         print(torrent_list)
         return torrent_list
-
-    # def get_magnet(self, url: str, torent: TorrentInfo) -> None:
-    #     pass
 
 
 class RutrackerParserPage:
