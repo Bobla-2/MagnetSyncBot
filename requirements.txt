@@ -1,0 +1,6 @@
+python-telegram-bot
+bs4
+fuzzywuzzy
+qbittorrent-api
+python-Levenshtein
+lxml
