@@ -9,7 +9,7 @@ class TorrentManager(ABC):
     @abstractmethod
     def __init__(self, host: str, port: int, username: str, password: str, protocol: str):
         """
-        Абстрактный метод конструктора. Параметры:
+        Абстрактный метод конструктора.
         :param host: str — Хост для подключения.
         :param port: int — Порт для подключения.
         :param username: str — Имя пользователя.
@@ -24,6 +24,10 @@ class TorrentManager(ABC):
 
     @abstractmethod
     def get_progress(self, id: int = None) -> float:
+        '''
+        :param id: id torrent. default last id
+        :return: progress download at 0 to 1
+        '''
         pass
 
     @abstractmethod
@@ -38,8 +42,10 @@ class TransmissionManager(TorrentManager):
         self.__id_last: int = 0
 
     def start_download(self, magnet_url: str) -> int:
-        self.__id_last = self.__client.add_torrent(magnet_url).id
-        return self.__id_last
+        if magnet_url != "":
+            self.__id_last = self.__client.add_torrent(magnet_url).id
+            return self.__id_last
+        return -1
 
     def get_progress(self, id: int = None) -> float:
         '''

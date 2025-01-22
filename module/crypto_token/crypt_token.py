@@ -1,4 +1,4 @@
-token = b'uytyttrdd'
+
 
 import time
 import base64
@@ -18,17 +18,6 @@ def generate_full_key():
     return base64.urlsafe_b64encode(full_key[:32])  # Обязательная длина 32 байта
 
 
-full_key = generate_full_key()
-print("Полный ключ:", full_key.decode())
-
-cipher = Fernet(full_key)
-encrypted_token = cipher.encrypt(token)
-print("Зашифрованный токен:", encrypted_token.decode())
-
-decrypted_token = cipher.decrypt(encrypted_token)
-print("Дешифрованный токен:", decrypted_token.decode())
-
-
 def __decrypt_data(key: bytes, data: bytes):
     """Расшифровывает токен."""
     try:
@@ -38,3 +27,17 @@ def __decrypt_data(key: bytes, data: bytes):
     except Exception as e:
         print(f"Ошибка при расшифровке токена: {e}")
         return None
+
+
+
+if __name__ == "__main__":
+    token = b'TOKEN'
+
+    full_key = generate_full_key()
+    print("Полный ключ:", full_key.decode())
+
+    cipher = Fernet(full_key)
+    encrypted_token = cipher.encrypt(token)
+    print("Зашифрованный токен:", encrypted_token.decode())
+
+    print(f"Дешифрованный токен: {__decrypt_data(full_key, encrypted_token)}")

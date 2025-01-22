@@ -26,5 +26,10 @@ def create_manager(client_type: str, host: str, port: int, username: str, passwo
 
     module = __import__(module_path, fromlist=[class_name])
     manager_class = getattr(module, class_name)
-    return manager_class(host, port, username, password, protocol)
+    try:
+        return manager_class(host, port, username, password, protocol)
+    except Exception as e:
+        return None
+
+
 

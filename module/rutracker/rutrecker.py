@@ -8,7 +8,7 @@ class TorrentInfo:
     """
     Класс объекта торрента содержащего все данные о торренте
 
-    имеет несколько @property, берущих данные со странници рутрекера через парсер RutrackerParserPage
+    имеет несколько @property, берущих данные со страници рутрекера через парсер RutrackerParserPage
     """
     __slots__ = ('category', 'name', 'year', 'url', 'magnet', '__parser', 'id_torrent')
     def __init__(self, category: str = None,
@@ -36,8 +36,12 @@ class TorrentInfo:
         return self.__parser.get_magnet_link()
 
     @property
+    def get_other_data(self) -> str:
+        return self.__parser.get_other_data()
+
+    @property
     def full_info(self) -> str:
-        return f"{self.name}\n\nВес: {self.size}\nКатегория: {self.category}"
+        return f"{self.name}\n\n*Вес:* {self.size}\n*Категория:* {self.category}\n{self.get_other_data}"
 
 
 def singleton(cls):
@@ -53,7 +57,7 @@ class Rutracker:
     """
     Класс (абстракция на _Rutracker) для инициализации использует данные из crypto_token.config
 
-    добавляет проверку на корректность инициализации при использовании get_anime_list
+    добавляет проверку на корректность при использовании get_anime_list
     в случае неудачи возвращает список с TorrentInfo содержащим сообщение об ошибке
     """
     def __init__(self):
@@ -64,8 +68,10 @@ class Rutracker:
 
     def get_anime_list(self, search_request: str) -> list[TorrentInfo]:
         if self.__rutracker.connected:
-            torrents_search = self.__rutracker.get_search_list(search_request, 1)
-            return torrents_search
+            try:
+                return self.__rutracker.get_search_list(search_request, 1)
+            except Exception as e:
+                return [TorrentInfo(name="Ошибка поиска. Попробуйте снова")]
         return [TorrentInfo(name="Ошибка подключений к рутрекеру. Попробуйте зарегистрироваться заново")]
 
 
@@ -122,11 +128,21 @@ class _Rutracker:
 
 
 class RutrackerParserPage:
+    """
+    Простой парсер страниц рутрекера
+    """
     def __init__(self, url):
         self.url = url
-        self.page = False
-    def load_page(self):
-        if not self.page:
+        self.__page = False
+        self.__soup = None
+
+    def __load_page(self):
+        """
+        Внутренний метод, скачивающий html файл страници
+
+        Нужно вызывать во всех функциях
+        """
+        if not self.__page:
             proxies = {
                 'http': proxy,
                 'https': proxy,
@@ -134,12 +150,13 @@ class RutrackerParserPage:
             retries = 3  # Количество попыток
             for attempt in range(retries):
                 try:
-                    response = requests.get(self.url, proxies=proxies)
-                    response.raise_for_status()  # Проверка статуса ответа
-                    self.page_content = response.text
-                    self.soup = BeautifulSoup(self.page_content, "html.parser")
-                    self.page = True
-                    return
+                    if self.url:
+                        response = requests.get(self.url, proxies=proxies)
+                        response.raise_for_status()
+                        page_content = response.text
+                        self.__soup = BeautifulSoup(page_content, "html.parser")
+                        self.__page = True
+                        return
                 except Exception as e:
                     print(f"Попытка {attempt + 1} из {retries}. Ошибка сети: Rutracker {e}.")
                     time.sleep(1)
@@ -147,21 +164,41 @@ class RutrackerParserPage:
             print(f"Не удалось загрузить страницу после {retries} попыток.")
             return
 
-    def get_magnet_link(self):
-        self.load_page()
-        if self.page:
-            magnet_link_tag = self.soup.find('a', href=lambda href: href and href.startswith('magnet:'))
+    def get_magnet_link(self) -> str:
+        self.__load_page()
+        if self.__page:
+            magnet_link_tag = self.__soup.find('a', href=lambda href: href and href.startswith('magnet:'))
             if magnet_link_tag:
                 return magnet_link_tag['href']
-        return None
+        return ""
 
-    def get_size(self):
-        self.load_page()
-        if self.page:
-            size_element = self.soup.find("li", text=lambda t: t and ("GB" in t or "MB" in t))
+    def get_size(self) -> str:
+        self.__load_page()
+        if self.__page:
+            size_element = self.__soup.find("li", text=lambda t: t and ("GB" in t or "MB" in t))
             if size_element:
                 size_text = size_element.get_text(strip=True)
                 return size_text
         return "Ошибка размера"
+
+
+    def get_other_data(self) -> str:
+        self.__load_page()
+        if self.__page:
+            post_body = self.__soup.find("div", class_="post_body")
+
+            if not post_body:
+                return "Ошибка: Данные не найдены"
+
+            data = []
+
+            # Проходим по всем элементам с классом post-b
+            for element in post_body.find_all("span", class_="post-b"):
+                key = element.get_text(strip=True).rstrip(":")  # Название поля
+                value = element.next_sibling.strip() if element.next_sibling else ""  # Значение
+                data.append(f"*{key}* {value}")
+
+            return "\n".join(data)
+
 
 
