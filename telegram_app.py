@@ -377,8 +377,8 @@ class ProgressBar:
 
 class ProgressBarWithBtn(ProgressBar):
     def __init__(self, progress_value, update, context: ContextTypes.DEFAULT_TYPE, name: str = "",
-                 total_step: int = 10, torrent_id: int = -1):
-        if torrent_id == -1:
+                 total_step: int = 10, torrent_id: int | str = None):
+        if not torrent_id:
             name = "Ошибка добавления торрента"
         else:
             self.btn = self.__generate_buttons()

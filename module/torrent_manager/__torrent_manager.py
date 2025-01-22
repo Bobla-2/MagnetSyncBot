@@ -45,7 +45,7 @@ class TransmissionManager(TorrentManager):
         if magnet_url != "":
             self.__id_last = self.__client.add_torrent(magnet_url).id
             return self.__id_last
-        return -1
+        return 0
 
     def get_progress(self, id: int = None) -> float:
         '''
@@ -65,10 +65,35 @@ class QBittorrentManager(TorrentManager):
     def __init__(self, host, port, username, password):
         self.__client = QBittorrentClient(host=host, port=port, username=username, password=password)
         self.__client.auth_log_in()
+        self.__id_last: str = ""
 
     def start_download(self, magnet_url: str):
-        self.__client.torrents_add(urls=magnet_url)
+        if magnet_url != "":
+            self.__client.torrents_add(urls=magnet_url)
+            # Получаем последний добавленный торрент
+            torrents = self.__client.torrents_info(sort="added_on", reverse=True)
+            if torrents:
+                self.__id_last = torrents[0].hash
+                return self.__id_last
+        return ""
 
-    def get_progress(self, id: int = None) -> float:
-        return -1.
+    def get_progress(self, id: str = None) -> float:
+        if not id:
+            id = self.__id_last
+        if id:
+            torrents = self.__client.torrents_info(hashes=id)
+            if torrents:
+                progress = torrents[0].progress
+                print(f'{id} progress download: {progress}')
+                return progress
+        return 0.0
+
+    def stop_download(self, id: str = None):
+        '''
+        :param id: Хэш (идентификатор) торрента. По умолчанию используется последний добавленный торрент.
+        '''
+        if not id:
+            id = self.__id_last
+        if id:
+            self.__client.torrents_pause(hashes=id)
 
