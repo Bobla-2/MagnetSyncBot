@@ -1,11 +1,12 @@
-from telegram import ForceReply, Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from telegram.error import NetworkError
 from module.torrent_manager.manager import create_manager
 from typing import List, Optional, Union
 from enum import Enum, auto
 from module.crypto_token.config import get_pass_defualt_torent_client
-from module.rutracker.rutrecker import Rutracker, TorrentInfo
+from module.torrent_tracker.main import TorrentTracker
+from module.torrent_tracker.TorrentInfoBase import AbstractTorrentInfo
 import asyncio
 
 
@@ -16,7 +17,8 @@ class BotClient:
         self.chat_id = update.effective_chat.id
         self.user_id = update.effective_user.id
 
-        self.rutecker = Rutracker()
+        self.tracker = TorrentTracker()
+        self.x1337 = None
         if torrent_settings:
             self.torrent = create_manager(
                 client_type=torrent_settings[0],
@@ -35,27 +37,30 @@ class BotClient:
                 password=get_pass_defualt_torent_client(),
             )
 
-        self.__anime_list: List[TorrentInfo] = []
-        self.__torrent_list_active: List[TorrentInfo] = []
-        self.__selected_anime: TorrentInfo = None
+        self.__anime_list: List[AbstractTorrentInfo] = []
+        # self.__torrent_list_active: List[AbstractTorrentInfo] = []
+        self.__selected_anime: AbstractTorrentInfo = None
         self.__dict_progress_bar = {}
 
     def search_anime(self, title: str) -> None:
-        self.__anime_list = self.rutecker.get_anime_list(title)
+        self.__anime_list = self.tracker.get_tracker_list(title)
 
     def get_anime_list(self, num_):
         if not self.__anime_list:
             return "Ничего не найдено"
-        return ''.join(f"{num + (num_ * 6)})    {anime}\n" for num, anime in enumerate(self.__anime_list[6 * num_:6 * (num_ + 1)]))
+        return ''.join(f"{num + (num_ * 6)})    {anime.name}\n" for num, anime in enumerate(self.__anime_list[6 * num_:6 * (num_ + 1)]))
 
     def get_anime_list_len(self) -> int:
-        return len(self.__anime_list)
+        if self.__anime_list:
+            return len(self.__anime_list)
+        else:
+            return 0
 
     def __start_download_torrent(self, num):
         self.__selected_anime = self.__anime_list[num]
         if self.torrent:
             self.__selected_anime.id_torrent = self.torrent.start_download(self.__selected_anime.get_magnet)
-            self.__torrent_list_active.append(self.__selected_anime)
+            # self.__torrent_list_active.append(self.__selected_anime)
 
     def stop_download(self, id_torrent: int) -> None:
         self.torrent.stop_download(id_torrent)
@@ -66,7 +71,7 @@ class BotClient:
         '''
         :param num: default __selected_anime progress
         '''
-        torrent_: TorrentInfo = self.__selected_anime if not num else self.__anime_list[num]
+        torrent_: AbstractTorrentInfo = self.__selected_anime if not num else self.__anime_list[num]
         self.__dict_progress_bar[str(torrent_.id_torrent)] = ProgressBarWithBtn(progress_value=lambda: self.torrent.get_progress(torrent_.id_torrent),
                             update=update,
                             context=context,
@@ -87,7 +92,7 @@ class BotClient:
 
 
 class TelegramBot:
-    MAX_RETRIES = 5
+    MAX_RETRIES = 6
     num_list_torrent = 0
 
     def __init__(self, token):
@@ -126,11 +131,15 @@ class TelegramBot:
         chat_id = update.effective_chat.id
         await self.send_message_whit_try(context=context, chat_id=chat_id,
                                          text="Для начала введите: /start\n"
-                                              "Для поиска введите: /search {НАЗВАНИЕ}\n"
+                                              "Для поиска: /search {РЕСУРС} {НАЗВАНИЕ}\n"
+                                              "РЕСУРС = [None(RuTracker), 1337]\n"
                                               "Для скачивания: /download {НОМЕР}\n"
                                               "Для просмотра параметров: /look {НОМЕР}\n\n"
                                               "Для установки кастомного торрент клиента введите: "
-                                              "/start {type}:{host}:{port}:{login}:{pass}")
+                                              "/start {type}:{host}:{port}:{login}:{pass}\n"
+                                              "type = [qbittorrent, transmission]\n"
+                                              "if host = 'https://', port = 443 \n"
+                                              )
 
     async def user_msg(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         chat_id = update.effective_chat.id
@@ -144,8 +153,8 @@ class TelegramBot:
         else:
             try:
                 num_ = int(update.message.text.split()[1])
-                print(num_)
-                if client.get_anime_list_len() < int(num_):
+                print(str(num_))
+                if client.get_anime_list_len() < num_:
                     await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                      text=f"Номер: {num_} отсутствует")
                 else:
@@ -214,17 +223,22 @@ class TelegramBot:
         else:
             if not search_arg:
                 await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
-                                                 text="Поле {НОМЕР} не должно быть пустым")
+                                                 text="Поле {НОМЕР} должно содержать цифру")
             else:
+                # try:
+                search_arg = int(search_arg)
                 if not client.torrent:
                     await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                      text="Ошибка подключения к торрент клиенту")
                 else:
-                    if client.get_anime_list_len() < int(search_arg):
+                    if client.get_anime_list_len() < search_arg:
                         await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                          text=f"Номер: {search_arg} отсутствует")
                     else:
-                        client.start_download_with_progres_bar(int(search_arg), update, context)
+                        client.start_download_with_progres_bar(search_arg, update, context)
+                # except:
+                #     await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
+                #                                      text="Поле {НОМЕР} должно содержать цифру")
 
     async def retry_operation(self, func, *args, retries=0, **kwargs):
         try:
@@ -232,7 +246,9 @@ class TelegramBot:
         except Exception as e:
             if retries < self.MAX_RETRIES:
                 print(f"Ошибка сети Telegram: {e}. Попробую снова через 5 секунд. Попытка {retries + 1}/{self.MAX_RETRIES}.")
-                await asyncio.sleep(5)
+                await asyncio.sleep(2)
+                if "Can't parse entities:" in str(e):
+                    kwargs["parse_mode"] = None
                 return await self.retry_operation(func, *args, retries=retries + 1, **kwargs)
             else:
                 print(f"Ошибка после {self.MAX_RETRIES} попыток: {e}")
@@ -316,7 +332,7 @@ class ProgressBar:
 
         __context (ContextTypes.DEFAULT_TYPE): Контекст для взаимодействия с Telegram-API.
     '''
-    def __init__(self, progress_value, user_id, context: ContextTypes.DEFAULT_TYPE, name: str = "", total_step: int = 10):
+    def __init__(self, progress_value, user_id, context: ContextTypes.DEFAULT_TYPE, name: str = "", total_step: int = 10, btn = None):
         self.__msg = None
         self.__progress_value = progress_value
         self.__total_step = total_step
@@ -324,7 +340,7 @@ class ProgressBar:
         self.__context = context
         self.__last_message = ""
         self.__name = f'{name[:36]}...\n' if name else ''
-        self.btn = None
+        self.btn = btn
         self.state = 1
         self.add_text: str = None
         asyncio.create_task(self.__start_progress())
@@ -369,6 +385,7 @@ class ProgressBar:
             progress = self.__progress_value()
         try:
             if self.state:
+                progress_bar = self.__generate_progress_bar(progress)
                 await self.__context.bot.edit_message_text(chat_id=self.__chat_id, message_id=self.__msg.message_id,
                                                 text=f"{self.__name}Прогресс: {progress_bar}\nЗагрузка завершена!")
         except NetworkError as e:
@@ -381,10 +398,11 @@ class ProgressBarWithBtn(ProgressBar):
         if not torrent_id:
             name = "Ошибка добавления торрента"
         else:
+            self.__torrent_id = torrent_id
             self.btn = self.__generate_buttons()
             self.stop_progress()
-        super().__init__(progress_value, update.effective_chat.id, context, name, total_step)
-        self.__torrent_id = torrent_id
+        super().__init__(progress_value, update.effective_chat.id, context, name, total_step, self.btn)
+
 
     def __generate_buttons(self) -> InlineKeyboardMarkup:
         # Генерация кнопок с уникальным callback_data

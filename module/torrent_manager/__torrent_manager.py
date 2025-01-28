@@ -31,7 +31,10 @@ class TorrentManager(ABC):
         pass
 
     @abstractmethod
-    def stop_download(self, id: int = None) -> float:
+    def stop_download(self, id: int):
+        '''
+        :param id: id torrent.
+        '''
         pass
 
 
@@ -57,13 +60,13 @@ class TransmissionManager(TorrentManager):
         print(f'{id} progress download{self.__client.get_torrent(id).progress / 100}')
         return self.__client.get_torrent(id).progress / 100
 
-    def stop_download(self, id: int = None):
+    def stop_download(self, id: int):
         self.__client.stop_torrent(id)
 
 
 class QBittorrentManager(TorrentManager):
-    def __init__(self, host, port, username, password):
-        self.__client = QBittorrentClient(host=host, port=port, username=username, password=password)
+    def __init__(self, host, port, username, password, protocol='http'):
+        self.__client = QBittorrentClient(host=f"{protocol}://{host}:{port}", username=username, password=password)
         self.__client.auth_log_in()
         self.__id_last: str = ""
 
@@ -88,7 +91,7 @@ class QBittorrentManager(TorrentManager):
                 return progress
         return 0.0
 
-    def stop_download(self, id: str = None):
+    def stop_download(self, id: str):
         '''
         :param id: Хэш (идентификатор) торрента. По умолчанию используется последний добавленный торрент.
         '''

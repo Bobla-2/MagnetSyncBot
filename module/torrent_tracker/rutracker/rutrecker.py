@@ -1,34 +1,48 @@
 import requests
 from bs4 import BeautifulSoup
-from module.rutracker.rutracker_api.main import RutrackerApi
+from module.torrent_tracker.rutracker.rutracker_api.main import RutrackerApi
 import time
 from module.crypto_token.config import get_pass_rutreker, get_login_rutreker, proxy
+from module.torrent_tracker.TorrentInfoBase import AbstractTorrentInfo
 
-class TorrentInfo:
+
+def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
+    for attempt in range(retries):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            print(f"Попытка {attempt + 1} из {retries}. Ошибка сети: ПОДКЛЮЧЕНИЯ Rutracker {e}.")
+            time.sleep(1)
+    print(f"Не удалось загрузить RutrackerApi после {retries} попыток.")
+    return None
+
+
+class TorrentInfo(AbstractTorrentInfo):
     """
     Класс объекта торрента содержащего все данные о торренте
 
     имеет несколько @property, берущих данные со страници рутрекера через парсер RutrackerParserPage
     """
-    __slots__ = ('category', 'name', 'year', 'url', 'magnet', '__parser', 'id_torrent')
+    __slots__ = ('__category', '__name', '__year', '__url', '__parser', '__id_torrent')
+
     def __init__(self, category: str = None,
                  name: str = None,
                  year: str = None,
-                 magnet: str = None,
                  url: str = None):
-        self.category = category
-        self.name = name
-        self.year = year
-        self.url = url
-        self.magnet = magnet
-        self.__parser = RutrackerParserPage(self.url)
-        self.id_torrent = None
-
-    def __str__(self):
-        return f"{self.name[:110]}\n"
+        self.__category = category
+        self.__name = name
+        self.__year = year
+        self.__url = url
+        # self.magnet = magnet
+        self.__parser = RutrackerParserPage(self.__url)
+        self.__id_torrent = None
 
     @property
-    def size(self) -> str:
+    def name(self) -> str:
+        return f"{self.__name[:110]}\n"
+
+    @property
+    def __size(self) -> str:
         return self.__parser.get_size()
 
     @property
@@ -40,8 +54,17 @@ class TorrentInfo:
         return self.__parser.get_other_data()
 
     @property
+    def id_torrent(self) -> str:
+        return self.__id_torrent
+
+    @id_torrent.setter
+    def id_torrent(self, id_: str | int):
+        self.__id_torrent = id_
+
+    @property
     def full_info(self) -> str:
-        return f"{self.name}\n\n*Вес:* {self.size}\n*Категория:* {self.category}\n{self.get_other_data}"
+        return (f"{self.__name}\n\n*Вес:* {self.__size}\n*Категория:* {self.__category}\n{self.get_other_data}\n"
+                f"[страница]({self.__url})"[:4000])
 
 
 def singleton(cls):
@@ -57,22 +80,26 @@ class Rutracker:
     """
     Класс (абстракция на _Rutracker) для инициализации использует данные из crypto_token.config
 
-    добавляет проверку на корректность при использовании get_anime_list
-    в случае неудачи возвращает список с TorrentInfo содержащим сообщение об ошибке
+    добавляет retry_operation при использовании всех функций
+    в случае неудачи возвращает список с TorrentInfo содержащим сообщение об ошибке в поле 'name'
     """
     def __init__(self):
-        self.__rutracker = _Rutracker(
-            username=get_login_rutreker(),
-            password=get_pass_rutreker(),
-            proxy=proxy)
+        from module.crypto_token.config import proxy as pr
+        self.__rutracker = _retries_retry_operation(_Rutracker,
+                                                    username=get_login_rutreker(),
+                                                    password=get_pass_rutreker(),
+                                                    proxy=pr)
 
-    def get_anime_list(self, search_request: str) -> list[TorrentInfo]:
-        if self.__rutracker.connected:
-            try:
-                return self.__rutracker.get_search_list(search_request, 1)
-            except Exception as e:
+    def get_tracker_list(self, search_request: str) -> list[AbstractTorrentInfo]:
+        if self.__rutracker:
+            list_ = _retries_retry_operation(self.__rutracker.get_search_list, search_request, 1)
+            if list_:
+                return list_
+            else:
                 return [TorrentInfo(name="Ошибка поиска. Попробуйте снова")]
-        return [TorrentInfo(name="Ошибка подключений к рутрекеру. Попробуйте зарегистрироваться заново")]
+        else:
+            self.__init__()
+            return [TorrentInfo(name="Ошибка подключений к рутрекеру. Попробуйте ввести запрос заново")]
 
 
 class _Rutracker:
@@ -96,23 +123,10 @@ class _Rutracker:
         """
         Инициализирует объект _Rutracker, выполняя авторизацию на Rutracker.
         """
-        retries = 3  # Количество попыток
-        self.connected = False
-        for attempt in range(retries):
-            try:
-                self.__rutracker = RutrackerApi(proxy=proxy)
-                self.__rutracker.login(username, password)
-                self.connected = True
-                return
-            except Exception as e:
-                print(f"Попытка {attempt + 1} из {retries}. Ошибка сети: ПОДКЛЮЧЕНИЯ Rutracker {e}.")
-                time.sleep(1)
-        print(f"Не удалось загрузить RutrackerApi после {retries} попыток.")
+        self.__rutracker = RutrackerApi(proxy=proxy)
+        self.__rutracker.login(username, password)
 
-
-
-    def get_search_list(self, search_request, page_deepth=1) -> list[TorrentInfo]:
-        # anime_categories = ['Аниме (DVD Video)', 'Аниме (SD Video)', 'Аниме (HD Video)']
+    def get_search_list(self, search_request, page_deepth=1) -> list[AbstractTorrentInfo]:
         page = 1
         search = self.__rutracker.search(search_request, "desc", "size", page)
         search_results = search['result']
@@ -133,40 +147,28 @@ class RutrackerParserPage:
     """
     def __init__(self, url):
         self.url = url
-        self.__page = False
         self.__soup = None
 
     def __load_page(self):
         """
         Внутренний метод, скачивающий html файл страници
-
         Нужно вызывать во всех функциях
         """
-        if not self.__page:
-            proxies = {
-                'http': proxy,
-                'https': proxy,
-            }
-            retries = 3  # Количество попыток
-            for attempt in range(retries):
-                try:
-                    if self.url:
-                        response = requests.get(self.url, proxies=proxies)
-                        response.raise_for_status()
-                        page_content = response.text
-                        self.__soup = BeautifulSoup(page_content, "html.parser")
-                        self.__page = True
-                        return
-                except Exception as e:
-                    print(f"Попытка {attempt + 1} из {retries}. Ошибка сети: Rutracker {e}.")
-                    time.sleep(1)
+        if not self.__soup and self.url:
+            from module.crypto_token.config import proxy as pr
+            proxies = {'http': pr,
+                       'https': pr}
+            self.__soup = _retries_retry_operation(self.__loader, url=self.url, proxies=proxies)
 
-            print(f"Не удалось загрузить страницу после {retries} попыток.")
-            return
+    def __loader(self, url: str, proxies):
+        response = requests.get(url, proxies=proxies)
+        response.raise_for_status()
+        page_content = response.text
+        return BeautifulSoup(page_content, "html.parser")
 
     def get_magnet_link(self) -> str:
         self.__load_page()
-        if self.__page:
+        if self.__soup:
             magnet_link_tag = self.__soup.find('a', href=lambda href: href and href.startswith('magnet:'))
             if magnet_link_tag:
                 return magnet_link_tag['href']
@@ -174,7 +176,7 @@ class RutrackerParserPage:
 
     def get_size(self) -> str:
         self.__load_page()
-        if self.__page:
+        if self.__soup:
             size_element = self.__soup.find("li", text=lambda t: t and ("GB" in t or "MB" in t))
             if size_element:
                 size_text = size_element.get_text(strip=True)
@@ -184,21 +186,26 @@ class RutrackerParserPage:
 
     def get_other_data(self) -> str:
         self.__load_page()
-        if self.__page:
+        if self.__soup:
             post_body = self.__soup.find("div", class_="post_body")
 
             if not post_body:
                 return "Ошибка: Данные не найдены"
-
             data = []
-
-            # Проходим по всем элементам с классом post-b
+            print(post_body.find_all("span", class_="post-b"))
             for element in post_body.find_all("span", class_="post-b"):
                 key = element.get_text(strip=True).rstrip(":")  # Название поля
-                value = element.next_sibling.strip() if element.next_sibling else ""  # Значение
-                data.append(f"*{key}* {value}")
+                sibling = element.next_sibling
+                while sibling and not isinstance(sibling, str):
+                    sibling = sibling.next_sibling
 
+                value = sibling.strip() if sibling else ""  # Значение
+                data.append(f"*{key}* {value}")
             return "\n".join(data)
 
+
+if __name__ == '__main__':
+    p = Rutracker().get_tracker_list("python")
+    print(p[0].get_magnet)
 
 
