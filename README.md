@@ -27,13 +27,18 @@ python main.py {proxy/None}
 Proxy по умолчанию http://127.0.0.1:10809 
 
 ## Использование_Docker
-**1) Сборка образа** 
+
+**1) Создать файл настроек**
+
+Алгоритм описан в [Работа_с_исходным_кодом](#Работа_с_исходным_кодом)
+
+**2) Сборка образа** 
 ```
 docker build -t magnetsyncbot /home/sas/MagnetSyncBot/
 ```
-**2) Создание контейнера**
+**3) Создание контейнера**
 ```
-docker run -d -p 10811:10811 -p 8080:8080 -p 9091:9091 --name magnetsyncbot magnetsyncbot /bin/sh
+docker run -d -p 10811:10811 -p 8080:8080 -p 9091:9091 --name magnetsyncbot magnetsyncbot
 ```
 10811 - порт прокси;
 8080 - qBittorrent;
