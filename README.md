@@ -15,7 +15,7 @@ pip install -r requirements.txt
 ```
 **2) Создать файл настроек**
 
-Алгоритм описан в [Работа_с_исходным_кодом](#Работа_с_исходным_кодом)
+Алгоритм описан в [Работа с исходным кодом](#Работа с исходным кодом)
 
 **3) Запуск**
 ```
@@ -36,16 +36,14 @@ docker run -d -p 10811:10811 -p 8080:8080 -p 9091:9091 --name magnetsyncbot magn
 8080 - qBittorrent;
 9091 - transmission;
 
-При изменении портов, измените их в Dockerfile
-
 
 ## Работа с исходным кодом
 Для работы нужно создать файл "MagnetSyncBot\module\crypto_token\config.py" с методами и переменными:
-- get_token() -> str (токен для ТГ бота)
-- get_pass_rutreker() -> str (логин для рутрекера)
-- get_login_rutreker() -> str (логин для рутрекера)
-- get_pass_defualt_torent_client() -> str (по умолчанию пытается использовать transmission с логином transmission)
-- proxy: str = 'http://127.0.0.1:10809'
+- `get_token() -> str` (токен для ТГ бота)
+- `get_pass_rutreker() -> str` (логин для рутрекера)
+- `get_login_rutreker() -> str` (логин для рутрекера)
+- `get_pass_defualt_torent_client() -> str` (по умолчанию пытается использовать transmission с логином transmission)
+- `proxy: str` = 'http://127.0.0.1:10809'
 
 #### Шифрование
 
