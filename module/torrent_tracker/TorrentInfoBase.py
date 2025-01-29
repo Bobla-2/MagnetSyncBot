@@ -28,7 +28,7 @@ class AbstractTorrentInfo(ABC):
 
     @property
     @abstractmethod
-    def id_torrent(self) -> str:
+    def id_torrent(self) -> str | int:
         pass
 
     @id_torrent.setter

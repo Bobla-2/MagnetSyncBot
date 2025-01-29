@@ -21,4 +21,4 @@ COPY . /app/
 EXPOSE 8080 9091 10809
 
 # Указываем команду для запуска бота
-CMD ["python", "main.py", "http://127.0.0.1:10809"]
+CMD ["python", "main.py"]

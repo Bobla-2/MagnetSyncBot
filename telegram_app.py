@@ -2,11 +2,11 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKe
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from telegram.error import NetworkError
 from module.torrent_manager.manager import create_manager
-from typing import List, Optional, Union
-from enum import Enum, auto
-from module.crypto_token.config import get_pass_defualt_torent_client
+from typing import List, Optional
+from module.crypto_token import config
 from module.torrent_tracker.main import TorrentTracker
 from module.torrent_tracker.TorrentInfoBase import AbstractTorrentInfo
+from module.other.jellyfin import CreaterSymlinksJellyfin
 import asyncio
 
 
@@ -30,17 +30,20 @@ class BotClient:
                 )
         else:
             self.torrent = create_manager(
-                client_type="transmission",
-                host="192.168.1.74",
-                port=9091,
-                username="transmission",
-                password=get_pass_defualt_torent_client(),
+                client_type=config.tornt_cli_type,
+                host=config.tornt_cli_host,
+                port=config.tornt_cli_port,
+                username=config.tornt_cli_login,
+                password=config.get_pass_defualt_torent_client(),
             )
 
         self.__anime_list: List[AbstractTorrentInfo] = []
-        # self.__torrent_list_active: List[AbstractTorrentInfo] = []
         self.__selected_anime: AbstractTorrentInfo = None
         self.__dict_progress_bar = {}
+        self.__creater_link = None
+        if config.jellyfin:
+            self.__creater_link = CreaterSymlinksJellyfin(config.jellyfin_dir)
+
 
     def search_anime(self, title: str) -> None:
         self.__anime_list = self.tracker.get_tracker_list(title)
@@ -60,7 +63,6 @@ class BotClient:
         self.__selected_anime = self.__anime_list[num]
         if self.torrent:
             self.__selected_anime.id_torrent = self.torrent.start_download(self.__selected_anime.get_magnet)
-            # self.__torrent_list_active.append(self.__selected_anime)
 
     def stop_download(self, id_torrent: int) -> None:
         self.torrent.stop_download(id_torrent)
@@ -79,13 +81,20 @@ class BotClient:
                             name=f'{torrent_.name}',
                             torrent_id=torrent_.id_torrent)
 
+    def __create_simlink(self, num: int | None = None) -> None:
+        if self.__creater_link:
+            torrent_: AbstractTorrentInfo = self.__selected_anime if not num else self.__anime_list[num]
+            self.__creater_link.create_symlink(torrent_.name, self.torrent.get_path(torrent_.id_torrent))
+
+
     def start_download_with_progres_bar(self, num, update, context):
         if self.torrent:
             self.__start_download_torrent(num)
             self.__start_progresbar(update, context)
+            self.__create_simlink()
 
 
-    def get_full_info_torrent(self, num) -> str:
+    def get_full_info_torrent(self, num: int) -> str:
         if not self.__anime_list:
             return "Ничего не найдено"
         return self.__anime_list[num].full_info
@@ -225,20 +234,20 @@ class TelegramBot:
                 await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                  text="Поле {НОМЕР} должно содержать цифру")
             else:
-                # try:
-                search_arg = int(search_arg)
-                if not client.torrent:
-                    await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
-                                                     text="Ошибка подключения к торрент клиенту")
-                else:
-                    if client.get_anime_list_len() < search_arg:
+                try:
+                    search_arg = int(search_arg)
+                    if not client.torrent:
                         await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
-                                                         text=f"Номер: {search_arg} отсутствует")
+                                                         text="Ошибка подключения к торрент клиенту")
                     else:
-                        client.start_download_with_progres_bar(search_arg, update, context)
-                # except:
-                #     await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
-                #                                      text="Поле {НОМЕР} должно содержать цифру")
+                        if client.get_anime_list_len() < search_arg:
+                            await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
+                                                             text=f"Номер: {search_arg} отсутствует")
+                        else:
+                            client.start_download_with_progres_bar(search_arg, update, context)
+                except:
+                    await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
+                                                     text="Поле {НОМЕР} должно содержать цифру")
 
     async def retry_operation(self, func, *args, retries=0, **kwargs):
         try:

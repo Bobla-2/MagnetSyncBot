@@ -3,8 +3,8 @@ from bs4 import BeautifulSoup
 from module.torrent_tracker.rutracker.rutracker_api.main import RutrackerApi
 import time
 from module.crypto_token.config import get_pass_rutreker, get_login_rutreker, proxy
+import module.crypto_token.config as config
 from module.torrent_tracker.TorrentInfoBase import AbstractTorrentInfo
-
 
 def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
     for attempt in range(retries):
@@ -84,11 +84,11 @@ class Rutracker:
     в случае неудачи возвращает список с TorrentInfo содержащим сообщение об ошибке в поле 'name'
     """
     def __init__(self):
-        from module.crypto_token.config import proxy as pr
+
         self.__rutracker = _retries_retry_operation(_Rutracker,
                                                     username=get_login_rutreker(),
                                                     password=get_pass_rutreker(),
-                                                    proxy=pr)
+                                                    proxy=config.proxy)
 
     def get_tracker_list(self, search_request: str) -> list[AbstractTorrentInfo]:
         if self.__rutracker:
@@ -155,9 +155,8 @@ class RutrackerParserPage:
         Нужно вызывать во всех функциях
         """
         if not self.__soup and self.url:
-            from module.crypto_token.config import proxy as pr
-            proxies = {'http': pr,
-                       'https': pr}
+            proxies = {'http': config.proxy,
+                       'https': config.proxy}
             self.__soup = _retries_retry_operation(self.__loader, url=self.url, proxies=proxies)
 
     def __loader(self, url: str, proxies):

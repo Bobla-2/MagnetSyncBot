@@ -37,6 +37,14 @@ class TorrentManager(ABC):
         '''
         pass
 
+    @abstractmethod
+    def get_path(self, id: int) -> str:
+        '''
+        :param id: id torrent. default last id
+        :return: path
+        '''
+        pass
+
 
 class TransmissionManager(TorrentManager):
     def __init__(self, host, port, username, password, protocol='http'):
@@ -57,11 +65,23 @@ class TransmissionManager(TorrentManager):
         '''
         if not id:
             id = self.__id_last
-        print(f'{id} progress download{self.__client.get_torrent(id).progress / 100}')
-        return self.__client.get_torrent(id).progress / 100
+        progress = self.__client.get_torrent(id).progress / 100
+        print(f'{id} progress download{progress}')
+        return progress
 
     def stop_download(self, id: int):
         self.__client.stop_torrent(id)
+
+    def get_path(self, id: int) -> str:
+        '''
+        :param id: id torrent. default last id
+        :return: path
+        '''
+        if not id:
+            id = self.__id_last
+        dir_ = self.__client.get_torrent(id).download_dir
+        print(f'{id} dir download{dir_}')
+        return dir_
 
 
 class QBittorrentManager(TorrentManager):
@@ -99,4 +119,15 @@ class QBittorrentManager(TorrentManager):
             id = self.__id_last
         if id:
             self.__client.torrents_pause(hashes=id)
+
+    def get_path(self, id: int) -> str:
+        '''
+        :param id: id torrent. default last id
+        :return:
+        '''
+        if not id:
+            id = self.__id_last
+        dir_ = self.__client.torrents_info(torrent_hash=id)[0].save_path
+        print(f'{id} dir download{dir_}')
+        return dir_
 

@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import time
 from module.torrent_tracker.TorrentInfoBase import AbstractTorrentInfo
-
+import module.crypto_token.config as config
 
 
 def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
@@ -93,13 +93,10 @@ class X1337:
     def __init__(self, proxy_=None):
         self.base_url = 'https://1337x.to'
         self.__search_url = self.base_url + '/search/{}/1/'
-        if proxy_:
-            self.__proxies = {'http': proxy_,
-                              'https': proxy_}
-        else:
-            from module.crypto_token.config import proxy
-            self.__proxies = {'http': proxy,
-                              'https': proxy}
+
+        self.__proxies = {'http': proxy_ or config.proxy,
+                          'https': proxy_ or config.proxy}
+
 
 
     def __get_search_list(self, query: str, search_url: str) -> [AbstractTorrentInfo]:
@@ -165,9 +162,8 @@ class _1337ParserPage:
         Нужно вызывать во всех функциях
         """
         if not self.__soup and self.url:
-            from module.crypto_token.config import proxy
-            proxies = {'http': proxy,
-                       'https': proxy}
+            proxies = {'http': config.proxy,
+                       'https': config.proxy}
             self.__soup = _retries_retry_operation(self.__loader, url=self.url, proxies=proxies)
 
     def __loader(self, url: str, proxies):
