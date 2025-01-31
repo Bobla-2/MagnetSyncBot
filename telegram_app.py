@@ -116,14 +116,15 @@ class TelegramBot:
         self.application.add_handler(CallbackQueryHandler(self.handle_menu_selection))
 
         self.keyboard_list_next = [
-            [InlineKeyboardButton("next", callback_data="next")],
+            [InlineKeyboardButton("next   ->", callback_data="next")],
         ]
         self.keyboard_list_prev = [
-            [InlineKeyboardButton("prev", callback_data="prev")],
+            [InlineKeyboardButton("<-   prev", callback_data="prev")],
         ]
         self.keyboard_list_next_prev = [[
-            InlineKeyboardButton("next", callback_data="next"),
-            InlineKeyboardButton("prev", callback_data="prev")
+            InlineKeyboardButton("<-   prev", callback_data="prev"),
+            InlineKeyboardButton("next   ->", callback_data="next")
+
         ]]
         self.keyboard_list_none = []
 

@@ -11,16 +11,19 @@
 - [Список_команд](#Список_команд)
 
 ## Использование
+**1) Скачать последний релиз**
 
-**1) Установка зависимостей**
+[**Скачать**](https://github.com/username/repository/releases/latest/download/MagnetSyncBot.zip)
+
+**2) Установка зависимостей**
 ```
 pip install -r requirements.txt
 ```
-**2) Создать файл настроек**
+**3) Создать файл настроек**
 
 Алгоритм описан в [Настройка_конфигурации](#Настройка_конфигурации)
 
-**3) Запуск**
+**4) Запуск**
 ```
 python main.py 
 ```
@@ -29,15 +32,23 @@ python main.py
 
 ## Использование_Docker
 
-**1) Создать файл настроек**
+**1) Скачать последний релиз**
+```
+wget https://github.com/Bobla-2/MagnetSyncBot/releases/latest/download/MagnetSyncBot.zip
+```
+**2) Распаковать проект**
+```
+unzip MagnetSyncBot.zip
+```
+**3) Создать файл настроек**
 
 Алгоритм описан в [Настройка_конфигурации](#Настройка_конфигурации)
 
-**2) Сборка образа** 
+**4) Сборка образа** 
 ```
 docker build -t magnetsyncbot /home/sas/MagnetSyncBot/
 ```
-**3) Создание контейнера**
+**5) Создание контейнера**
 ```
 docker run -d -p 10811:10811 -p 8080:8080 -p 9091:9091 --name magnetsyncbot magnetsyncbot
 ```
@@ -55,12 +66,13 @@ docker run -d -p 10811:10811 -p 8080:8080 -p 9091:9091 --name magnetsyncbot magn
 - `get_login_rutreker() -> str` (логин от рутрекера)
 - `get_pass_defualt_torent_client() -> str` (пароль для торрент-клиента по умолчанию)
 
-- `proxy: str` = 'http://127.0.0.1:10809'
+- `proxy: str` = [`"http://host:port"`|`"socks5h://user:password@host:port"`]
 - `tornt_cli_host: str` (хост торрент-клиента по умолчанию)
 - `tornt_cli_port: int` (порт торрент-клиента по умолчанию)
 - `tornt_cli_type: str` (тип торрент-клиента по умолчанию)
 - `tornt_cli_login: str` (логин для торрент-клиента по умолчанию)
-
+- `jellyfin: bool` = False
+- `jellyfin_dir: str` = "/jellyfin/library/"
 #### Шифрование
 
 Методы могут использовать шифрование. Для этого можно использовать метод __decrypt_data(key: bytes, data: bytes) из файла crypt_token.py и возвращать его результат

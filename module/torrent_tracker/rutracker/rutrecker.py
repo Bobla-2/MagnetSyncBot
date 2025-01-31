@@ -191,7 +191,7 @@ class RutrackerParserPage:
             if not post_body:
                 return "Ошибка: Данные не найдены"
             data = []
-            print(post_body.find_all("span", class_="post-b"))
+            # print(post_body.find_all("span", class_="post-b"))
             for element in post_body.find_all("span", class_="post-b"):
                 key = element.get_text(strip=True).rstrip(":")  # Название поля
                 sibling = element.next_sibling
