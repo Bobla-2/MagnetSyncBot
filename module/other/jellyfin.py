@@ -1,55 +1,46 @@
 import os
+from module.crypto_token import config
 
 
+def singleton(cls):
+    instances = {}
+
+    def get_instance(*args, **kwargs):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+    return get_instance
+
+
+@singleton
 class CreaterSymlinksJellyfin:
-    def __init__(self, target_dir: str):
-        self.__target_dir = target_dir
-        if not os.path.exists(self.__target_dir):
-            os.makedirs(self.__target_dir)
+    def __select_category_folder(self, category) -> str | None:
+        for categories, folder_path, condition, _ in config.MEDIA_EXTENSIONS:
+            if condition == "==":
+                if category in categories:
+                    return folder_path
+            elif condition == "in":
+                if any(cat in category for cat in categories):
+                    return folder_path
+        return None
 
-    def create_symlinks(self, source_dir: str) -> None:
-        """
-        Создает символические ссылки на файлы из source_dir в target_dir.
-        """
-        for root, _, files in os.walk(source_dir):
-            for file in files:
-                source_file = os.path.join(root, file)
-                relative_path = os.path.relpath(source_file, source_dir)
-                target_file = os.path.join(self.__target_dir, relative_path)
+    def create_symlink(self, original_path: str, category):
+        """Создает симлинк в Jellyfin для файла, заменяя /download/ на /mnt/nas_downloads/"""
+        relative_path = original_path.split(config.TORRENT_FOLDER, 1)[1]  # Берем всё после /download/
+        category_folder = self.__select_category_folder(category)
+        full_path_category = os.path.join(config.JELLYFIN_PATH, category_folder)
+        target_file = os.path.join(full_path_category, relative_path)
 
-                media_extensions = {'.mkv', '.mp4', '.avi', '.mov', '.wmv'}
-                if os.path.splitext(file)[1].lower() in media_extensions:
-                # Создаем папки, если они отсутствуют
-                    os.makedirs(os.path.dirname(target_file), exist_ok=True)
-
-                    if not os.path.exists(target_file):
-                        os.symlink(source_file, target_file)
-                        print(f"Создан симлинк: {target_file} -> {source_file}")
-                    else:
-                        print(f"Симлинк уже существует: {target_file}")
-
-    def create_symlink(self, source_file: str, file_name: str) -> None:
-        """
-        Создает символическую ссылку на файл source_file в папке target_dir.
-        """
-        if not os.path.exists(source_file):
-            print(f"Ошибка: файл {source_file} не существует.")
-            return
-
-        target_file = os.path.join(self.__target_dir, file_name)
-
-        if not os.path.exists(target_file):
-            os.symlink(source_file, target_file)
-            print(f"Создан симлинк: {target_file} -> {source_file}")
-        else:
+        if os.path.exists(target_file):
             print(f"Симлинк уже существует: {target_file}")
-
-
-
-
+            return
+        try:
+            os.symlink(original_path, target_file)
+            print(f"Симлинк создан: {original_path} -> {target_file}")
+        except Exception as e:
+            print(f"Ошибка создания симлинка: {e}")
 
 
 if __name__ == "__main__":
-    s = CreaterSymlinksJellyfin("target_dir")
-    s.create_symlinks("source_dir")
-    s.create_symlink("source_file", "132")
+    s = CreaterSymlinksJellyfin()
+    s.create_symlink("/home/user/some/path/download/хуйня/", 'Аниме (SD Video)')

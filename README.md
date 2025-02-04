@@ -46,15 +46,22 @@ unzip MagnetSyncBot.zip
 
 **4) Сборка образа** 
 ```
-docker build -t magnetsyncbot /home/sas/MagnetSyncBot/
+docker build -t magnetsyncbot /home/$USER/MagnetSyncBot/
 ```
-**5) Создание контейнера**
+**5-1) Создание контейнера**
 ```
 docker run -d -p 10811:10811 -p 8080:8080 -p 9091:9091 --name magnetsyncbot magnetsyncbot
 ```
 10811 - порт прокси;
 8080 - qBittorrent;
 9091 - transmission;
+
+**5-2) Создание контейнера docker-compose**
+```
+docker-compose up -d
+```
+
+
 
 
 ## Настройка_конфигурации

@@ -4,7 +4,7 @@ from module.torrent_tracker.rutracker.rutracker_api.main import RutrackerApi
 import time
 from module.crypto_token.config import get_pass_rutreker, get_login_rutreker, proxy
 import module.crypto_token.config as config
-from module.torrent_tracker.TorrentInfoBase import AbstractTorrentInfo
+from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo
 
 def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
     for attempt in range(retries):
@@ -12,23 +12,25 @@ def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
             return func(*args, **kwargs)
         except Exception as e:
             print(f"Попытка {attempt + 1} из {retries}. Ошибка сети: ПОДКЛЮЧЕНИЯ Rutracker {e}.")
-            time.sleep(1)
+            time.sleep(0.3)
     print(f"Не удалось загрузить RutrackerApi после {retries} попыток.")
     return None
 
 
-class TorrentInfo(AbstractTorrentInfo):
+class TorrentInfo(ABCTorrentInfo):
     """
     Класс объекта торрента содержащего все данные о торренте
 
     имеет несколько @property, берущих данные со страници рутрекера через парсер RutrackerParserPage
     """
-    __slots__ = ('__category', '__name', '__year', '__url', '__parser', '__id_torrent')
+    __slots__ = ('__category', '__name', '__year', '__url', '__parser', '__id_torrent', '__forum_name')
 
-    def __init__(self, category: str = None,
+    def __init__(self, category: str = '',
                  name: str = None,
                  year: str = None,
-                 url: str = None):
+                 url: str = None,
+                 forum_name: str = None):
+        self.__forum_name = forum_name
         self.__category = category
         self.__name = name
         self.__year = year
@@ -62,9 +64,20 @@ class TorrentInfo(AbstractTorrentInfo):
         self.__id_torrent = id_
 
     @property
+    def short_category(self) -> str | None:
+        for categories, _, condition, short_categories in config.MEDIA_EXTENSIONS:
+            if condition == "==":
+                if self.__category in categories:
+                    return short_categories
+            elif condition == "in":
+                if any(cat in self.__category for cat in categories):
+                    return short_categories
+        return None
+
+    @property
     def full_info(self) -> str:
-        return (f"{self.__name}\n\n*Вес:* {self.__size}\n*Категория:* {self.__category}\n{self.get_other_data}\n"
-                f"[страница]({self.__url})"[:4000])
+        return (f"{self.__name}\n\n*Вес:* {self.__size}\n*Категория:* {self.__category}\n{self.get_other_data[:2000]}\n"
+                f"[страница]({self.__url})")
 
 
 def singleton(cls):
@@ -90,7 +103,7 @@ class Rutracker:
                                                     password=get_pass_rutreker(),
                                                     proxy=config.proxy)
 
-    def get_tracker_list(self, search_request: str) -> list[AbstractTorrentInfo]:
+    def get_tracker_list(self, search_request: str) -> list[ABCTorrentInfo]:
         if self.__rutracker:
             list_ = _retries_retry_operation(self.__rutracker.get_search_list, search_request, 1)
             if list_:
@@ -126,7 +139,7 @@ class _Rutracker:
         self.__rutracker = RutrackerApi(proxy=proxy)
         self.__rutracker.login(username, password)
 
-    def get_search_list(self, search_request, page_deepth=1) -> list[AbstractTorrentInfo]:
+    def get_search_list(self, search_request, page_deepth=1) -> list[ABCTorrentInfo]:
         page = 1
         search = self.__rutracker.search(search_request, "desc", "size", page)
         search_results = search['result']

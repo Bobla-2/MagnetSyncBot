@@ -2,3 +2,6 @@
 *.pyc
 module/crypto_token/config.py
 /доки
+*.xml
+*.gz
+*.pkl

@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import time
-from module.torrent_tracker.TorrentInfoBase import AbstractTorrentInfo
+from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo
 import module.crypto_token.config as config
 
 
@@ -16,14 +16,14 @@ def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
     return None
 
 
-class TorrentInfo(AbstractTorrentInfo):
+class TorrentInfo(ABCTorrentInfo):
     """
     Класс объекта торрента содержащего все данные о торренте
 
     имеет несколько @property, берущих данные со страници
     """
     def __init__(self, url: str = None,
-                 category: str = None,
+                 category: str = '',
                  name: str = None,
                  year: str = None,
                  magnet: str = None,
@@ -62,10 +62,19 @@ class TorrentInfo(AbstractTorrentInfo):
         self.__id_torrent = id_
 
     @property
+    def category(self) -> str:
+        return ""
+
+    @property
     def full_info(self) -> str:
-        return (f"{self.__name}\n\n*Вес:* {self.__size}\n*Категория:* {self.__category}\n"
+        return (f"{self.__name}\n\n"
                 f"*leeches:* {self.__leeches}\n*seeds:* {self.__seeds}\n*дата:* {self.__year}\n{self.get_other_data}\n"
                 f"[страница]({self.__url})")
+
+    @property
+    def short_category(self) -> str | None:
+        print("short_category на 1337 не реализованно")
+        return None
 
 def singleton(cls):
     instances = {}
@@ -99,7 +108,7 @@ class X1337:
 
 
 
-    def __get_search_list(self, query: str, search_url: str) -> [AbstractTorrentInfo]:
+    def __get_search_list(self, query: str, search_url: str) -> [ABCTorrentInfo]:
         search_url = search_url.format(query)
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -139,7 +148,7 @@ class X1337:
                                             ))
         return torrent_list
 
-    def get_tracker_list(self, search_request: str) -> list[AbstractTorrentInfo]:
+    def get_tracker_list(self, search_request: str) -> list[ABCTorrentInfo]:
         list_ = _retries_retry_operation(self.__get_search_list, search_request, self.__search_url)
         if list_:
             return list_
@@ -182,7 +191,23 @@ class _1337ParserPage:
             return None
 
     def get_other_data(self) -> str:
-        return "other_data = None"
+        self.__load_page()
+        if self.__soup:
+            info_box = self.__soup.find('div', class_="box-info torrent-detail-page")
+            if not info_box:
+                return "None"
+
+            data = []
+            for li in info_box.find_all('li'):
+                strong = li.find('strong')
+                span = li.find('span')
+
+                if strong and span:
+                    key = strong.get_text(strip=True).lower().replace(" ", "_")  # Приводим ключ к виду snake_case
+                    value = span.get_text(strip=True)
+                    data.append(f"*{key}* {value}")
+            return "\n".join(data)
+
 
 
 if __name__ == '__main__':

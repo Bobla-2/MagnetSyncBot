@@ -15,7 +15,6 @@ def parse_arguments():
     print(f"Принят параметр: {args}")
 
 
-
 if __name__ == '__main__':
     parse_arguments()
 

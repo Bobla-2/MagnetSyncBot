@@ -1,14 +1,17 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from telegram.error import NetworkError
 from module.torrent_manager.manager import create_manager
-from typing import List, Optional
 from module.crypto_token import config
 from module.torrent_tracker.main import TorrentTracker
-from module.torrent_tracker.TorrentInfoBase import AbstractTorrentInfo
+from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo
 from module.other.jellyfin import CreaterSymlinksJellyfin
+from module.title_serchers.anidb.anidb import AnimeDatabaseSearch
+from module.title_serchers.kinopoisk.kinopoisk import KinopoiskDatabaseSearch
+from module.title_serchers.manager_db import ManagerDB
+from typing import List, Optional
 import asyncio
-
+import os
 
 class BotClient:
     def __init__(self, context: ContextTypes.DEFAULT_TYPE, update: Update, torrent_settings: list = None):
@@ -19,85 +22,116 @@ class BotClient:
 
         self.tracker = TorrentTracker()
         self.x1337 = None
+        self.torrent = None
+        db = []
+        if config.ENABLE_KINOPOISK:
+            db.append((KinopoiskDatabaseSearch(), 'cinema'))
+        db.append((AnimeDatabaseSearch(), 'anime'))
+        self.__db_manager = ManagerDB(db)
+
         if torrent_settings:
-            self.torrent = create_manager(
-                client_type=torrent_settings[0],
-                host=torrent_settings[1],
-                port=int(torrent_settings[2]),
-                username=torrent_settings[3],
-                password=torrent_settings[4],
-                protocol="https" if torrent_settings[2] == "443" else "http"
-                )
+            try:
+                self.torrent = create_manager(
+                    client_type=torrent_settings[0],
+                    host=torrent_settings[1],
+                    port=int(torrent_settings[2]),
+                    username=torrent_settings[3],
+                    password=torrent_settings[4],
+                    protocol="https" if torrent_settings[2] == "443" else "http"
+                    )
+            except:
+                pass
         else:
             self.torrent = create_manager(
                 client_type=config.tornt_cli_type,
                 host=config.tornt_cli_host,
                 port=config.tornt_cli_port,
                 username=config.tornt_cli_login,
-                password=config.get_pass_defualt_torent_client(),
+                password=config.tornt_cli_pass,
             )
 
-        self.__anime_list: List[AbstractTorrentInfo] = []
-        self.__selected_anime: AbstractTorrentInfo = None
+        self.__last_search_title = ""
+        self.__list_torrent_info: List[ABCTorrentInfo] = []
+        self.__selected_torrent_info: ABCTorrentInfo = None
         self.__dict_progress_bar = {}
         self.__creater_link = None
         if config.jellyfin:
-            self.__creater_link = CreaterSymlinksJellyfin(config.jellyfin_dir)
+            if os.name != 'nt':
+                self.__creater_link = CreaterSymlinksJellyfin()
 
+    def search_torrent(self, search_title: str) -> None:
+        self.__list_torrent_info = self.tracker.get_tracker_list(search_title)
+        self.__last_search_title = search_title
 
-    def search_anime(self, title: str) -> None:
-        self.__anime_list = self.tracker.get_tracker_list(title)
-
-    def get_anime_list(self, num_):
-        if not self.__anime_list:
+    def get_torrent_info_part_list(self, num_: int) -> str:
+        """
+        Возвращает часть списка найденных торрент-файлов, разбитого на страницы по 6 элементов.
+        Args:
+            num_ (int): Номер страницы (начиная с 0).
+        Returns:
+            str: Строка с перечислением торрентов и дополнительной информацией,
+                 либо сообщение "Ничего не найдено", если список пуст.
+        """
+        if not self.__list_torrent_info:
             return "Ничего не найдено"
-        return ''.join(f"{num + (num_ * 6)})    {anime.name}\n" for num, anime in enumerate(self.__anime_list[6 * num_:6 * (num_ + 1)]))
+        categories = []
+        items = []
+        for num, torrent_info in enumerate(self.__list_torrent_info[6 * num_:6 * (num_ + 1)]):
+            categories.append(torrent_info.short_category)
+            items.append(f"{num + (num_ * 6)})    {torrent_info.name}\n")
 
-    def get_anime_list_len(self) -> int:
-        if self.__anime_list:
-            return len(self.__anime_list)
+        add_text = self.__db_manager.get_info_text(categories, self.__last_search_title)
+        return f"{''.join(items).replace(']', '').replace('[', '')} {add_text}"
+
+    def get_torrent_info_list_len(self) -> int:
+        if self.__list_torrent_info:
+            return len(self.__list_torrent_info)
         else:
             return 0
 
-    def __start_download_torrent(self, num):
-        self.__selected_anime = self.__anime_list[num]
+    def __start_download_torrent(self, num: int):
+        self.__selected_torrent_info = self.__list_torrent_info[num]
         if self.torrent:
-            self.__selected_anime.id_torrent = self.torrent.start_download(self.__selected_anime.get_magnet)
+            for me in config.MEDIA_EXTENSIONS:
+                if me[3] == self.__selected_torrent_info.short_category:
+                    subdir = me[1]
+                    self.__selected_torrent_info.id_torrent = self.torrent.start_download(
+                        self.__selected_torrent_info.get_magnet,
+                        subdir)
 
     def stop_download(self, id_torrent: int) -> None:
         self.torrent.stop_download(id_torrent)
         self.__dict_progress_bar[str(id_torrent)].stop_progress()
 
-
     def __start_progresbar(self, update, context, num=None):
         '''
-        :param num: default __selected_anime progress
+        :param num: default __selected_torrent_info progress
         '''
-        torrent_: AbstractTorrentInfo = self.__selected_anime if not num else self.__anime_list[num]
-        self.__dict_progress_bar[str(torrent_.id_torrent)] = ProgressBarWithBtn(progress_value=lambda: self.torrent.get_progress(torrent_.id_torrent),
-                            update=update,
-                            context=context,
-                            total_step=10,
-                            name=f'{torrent_.name}',
-                            torrent_id=torrent_.id_torrent)
+        torrent_: ABCTorrentInfo = self.__selected_torrent_info if not num else self.__list_torrent_info[num]
+        self.__dict_progress_bar[str(torrent_.id_torrent)] = ProgressBarWithBtn(
+            progress_value=lambda: self.torrent.get_progress(torrent_.id_torrent),
+            update=update,
+            context=context,
+            total_step=10,
+            name=f'{torrent_.name}',
+            torrent_id=torrent_.id_torrent)
 
-    def __create_simlink(self, num: int | None = None) -> None:
+    def __create_symlink(self, num: int | None = None) -> None:
         if self.__creater_link:
-            torrent_: AbstractTorrentInfo = self.__selected_anime if not num else self.__anime_list[num]
-            self.__creater_link.create_symlink(torrent_.name, self.torrent.get_path(torrent_.id_torrent))
-
+            torrent_: ABCTorrentInfo = self.__selected_torrent_info if not num else self.__list_torrent_info[num]
+            self.__creater_link.create_symlink(self.torrent.get_path(torrent_.id_torrent), category=torrent_.short_category)
 
     def start_download_with_progres_bar(self, num, update, context):
         if self.torrent:
             self.__start_download_torrent(num)
             self.__start_progresbar(update, context)
-            self.__create_simlink()
+            self.__create_symlink()
 
 
     def get_full_info_torrent(self, num: int) -> str:
-        if not self.__anime_list:
+        if not self.__list_torrent_info:
             return "Ничего не найдено"
-        return self.__anime_list[num].full_info
+        return self.__list_torrent_info[num].full_info
 
 
 class TelegramBot:
@@ -153,7 +187,8 @@ class TelegramBot:
 
     async def user_msg(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         chat_id = update.effective_chat.id
-        await self.send_message_whit_try(context=context, chat_id=chat_id, text="Для справки введите: /help")
+        await self.send_message_whit_try(context=context, chat_id=chat_id,
+                                         text="Команда не распознана.\nДля справки введите: /help")
 
     async def cmd_look(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         client = self.__get_client_by_chat_id(update.effective_chat.id)
@@ -164,7 +199,7 @@ class TelegramBot:
             try:
                 num_ = int(update.message.text.split()[1])
                 print(str(num_))
-                if client.get_anime_list_len() < num_:
+                if client.get_torrent_info_list_len() < num_:
                     await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                      text=f"Номер: {num_} отсутствует")
                 else:
@@ -184,18 +219,30 @@ class TelegramBot:
         client = next((client for client in self.clients if client.user_id == user_id), None)
         if client:
             self.clients.remove(client)
+
         msg_arg = update.message.text[7:].split(":")
-        if len(msg_arg) > 2:
-            self.clients.append(BotClient(context, update, msg_arg))
+        clients_: BotClient = None
+
+        if len(msg_arg) > 3:
+            clients_ = BotClient(context, update, msg_arg)
         else:
-            self.clients.append(BotClient(context, update))
-        if not self.clients[-1].torrent:
-            await self.edit_message_whit_try(context=context, chat_id=chat_id, msg=msg,
-                                             text="Ошибка подключения к торрент клиенту.\nЗагрузка недоступна\n"
-                                                  "Для поиска введите: /search {НАЗВАНИЕ}")
-        else:
-            await self.edit_message_whit_try(context=context, chat_id=chat_id, msg=msg,
+            if config.enable_white_list and (user_id in config.WHITE_LIST):
+                clients_ = BotClient(context, update)
+            elif msg_arg[0] == config.pass_tg or not config.enable_pass_tg:
+                clients_ = BotClient(context, update)
+            else:
+                await self.edit_message_whit_try(context=context, chat_id=chat_id, msg=msg,
+                                                 text="Пароль неверный")
+
+        if clients_:
+            if not clients_.torrent:
+                await self.edit_message_whit_try(context=context, chat_id=chat_id, msg=msg,
+                                                 text="Ошибка подключения к торрент клиенту.\nЗагрузка недоступна\n"
+                                                      "Для поиска введите: /search {НАЗВАНИЕ}")
+            else:
+                await self.edit_message_whit_try(context=context, chat_id=chat_id, msg=msg,
                                              text="Для поиска введите: /search {НАЗВАНИЕ}")
+            self.clients.append(clients_)
 
     async def cmd_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         self.num_list_torrent = 0
@@ -212,16 +259,18 @@ class TelegramBot:
                                                  chat_id=update.effective_chat.id,
                                                  text="Поле {НАЗВАНИЕ} не должно быть пустым")
             else:
-                client.search_anime(search_arg)
-                anime = client.get_anime_list(self.num_list_torrent)
-                if 6 >= client.get_anime_list_len():
+                client.search_torrent(search_arg)
+                torrent_info = client.get_torrent_info_part_list(self.num_list_torrent)
+                if 6 >= client.get_torrent_info_list_len():
                     kye = InlineKeyboardMarkup(self.keyboard_list_none)
                 else:
                     kye = InlineKeyboardMarkup(self.keyboard_list_next)
                 await self.send_message_whit_try(context=context,
                                                  chat_id=update.effective_chat.id,
-                                                 text=f'''{anime}\n\nДля скачивания:  /download {{НОМЕР}}\nДля просмотра параметров:  /look {{НОМЕР}}''',
-                                                 reply_markup=kye)
+                                                 text=f'''{torrent_info}\nДля скачивания:  /download {{НОМЕР}}\nДля просмотра:  /look {{НОМЕР}}''',
+                                                 reply_markup=kye,
+                                                 parse_mode="Markdown",
+                                                 disable_web_page_preview=True)
 
     async def cmd_download(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         search_arg = update.message.text[10:]
@@ -241,7 +290,7 @@ class TelegramBot:
                         await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                          text="Ошибка подключения к торрент клиенту")
                     else:
-                        if client.get_anime_list_len() < search_arg:
+                        if client.get_torrent_info_list_len() < search_arg:
                             await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                              text=f"Номер: {search_arg} отсутствует")
                         else:
@@ -264,23 +313,25 @@ class TelegramBot:
                 print(f"Ошибка после {self.MAX_RETRIES} попыток: {e}")
                 return None
 
-    async def send_message_whit_try(self, chat_id, text, context, parse_mode=None, reply_markup=None):
+    async def send_message_whit_try(self, chat_id, text, context, parse_mode=None, reply_markup=None, disable_web_page_preview = False):
         print(text)
         return await self.retry_operation(
             context.bot.send_message,
             chat_id=chat_id,
             text=text,
             parse_mode=parse_mode,
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            disable_web_page_preview=disable_web_page_preview
         )
 
-    async def query_update_whit_try(self, text, query, parse_mode=None, reply_markup=None):
+    async def query_update_whit_try(self, text, query, parse_mode=None, reply_markup=None, disable_web_page_preview = False):
         print(text)
         return await self.retry_operation(
             query.edit_message_text,
             text=text,
             parse_mode=parse_mode,
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            disable_web_page_preview=disable_web_page_preview
         )
 
     async def edit_message_whit_try(self, chat_id, text, context, msg, parse_mode=None, reply_markup=None):
@@ -307,19 +358,21 @@ class TelegramBot:
             elif query.data == "next":
                 self.num_list_torrent += 1
 
-            if 6 >= client.get_anime_list_len():
+            if 6 >= client.get_torrent_info_list_len():
                 kye = InlineKeyboardMarkup(self.keyboard_list_none)
             elif self.num_list_torrent == 0:
                 kye = InlineKeyboardMarkup(self.keyboard_list_next)
-            elif (self.num_list_torrent + 1) * 6 >= client.get_anime_list_len():
+            elif (self.num_list_torrent + 1) * 6 >= client.get_torrent_info_list_len():
                 kye = InlineKeyboardMarkup(self.keyboard_list_prev)
             else:
                 kye = InlineKeyboardMarkup(self.keyboard_list_next_prev)
 
-            anime = client.get_anime_list(self.num_list_torrent)
-            await self.query_update_whit_try(text=f'{anime}\n\nДля скачивания:  /download {{НОМЕР}}\nДля просмотра параметров:  /look {{НОМЕР}}',
+            torrent_info = client.get_torrent_info_part_list(self.num_list_torrent)
+            await self.query_update_whit_try(text=f'{torrent_info}\nДля скачивания:  /download {{НОМЕР}}\nДля просмотра:  /look {{НОМЕР}}',
                                              reply_markup=kye,
-                                             query=query)
+                                             query=query,
+                                             parse_mode="Markdown",
+                                             disable_web_page_preview=True)
 
         elif "_" in query.data:
             data = query.data.split("_")

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 
-class AbstractTorrentInfo(ABC):
+class ABCTorrentInfo(ABC):
     __slots__ = ()
     """
     Абстрактный базовый класс для объектов, содержащих данные о торренте.
@@ -40,5 +40,11 @@ class AbstractTorrentInfo(ABC):
     @abstractmethod
     def name(self) -> str:
         """Размер торрента (например, в MB, GB)."""
+        pass
+
+    @property
+    @abstractmethod
+    def short_category(self) -> str | None:
+        """Возвращает простую категорию торрента из config.MEDIA_EXTENSIONS"""
         pass
 
