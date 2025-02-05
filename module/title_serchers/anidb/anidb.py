@@ -52,10 +52,13 @@ class AnimeDatabaseSearch(ABCDatabaseSearch):
                 return [(title['title'], title['lang'], title['type']) for title in anime['titles']]
         return []
 
-    def get_names_and_url_title(self,  search_title: str) -> (List[str], str):
+    def get_names_and_url_title(self, search_title: str) -> (List[str], str):
         _, anime_id = self.find_id_titles_id_by_request(search_title)
-        return ([title[0] for title in self.get_titles_by_id(anime_id)
-                if title[1] in ('ru', 'x-jat') and title[2] in ('main', 'syn', 'official')],
+        list_ = self.get_titles_by_id(anime_id)
+        return ([title[0] for title in list_
+                if title[2] in 'main']+[
+                title[0] for title in list_
+                if title[1] == 'ru' and title[2] in ('main', 'syn', 'official')],
                 f'[AniDB](https://anidb.net/anime/{anime_id})')
 
 

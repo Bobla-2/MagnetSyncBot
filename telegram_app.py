@@ -5,7 +5,7 @@ from module.torrent_manager.manager import create_manager
 from module.crypto_token import config
 from module.torrent_tracker.main import TorrentTracker
 from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo
-from module.other.jellyfin import CreaterSymlinksJellyfin
+from module.other.jellyfin import CreaterSymlinkManager
 from module.title_serchers.anidb.anidb import AnimeDatabaseSearch
 from module.title_serchers.kinopoisk.kinopoisk import KinopoiskDatabaseSearch
 from module.title_serchers.manager_db import ManagerDB
@@ -54,10 +54,10 @@ class BotClient:
         self.__list_torrent_info: List[ABCTorrentInfo] = []
         self.__selected_torrent_info: ABCTorrentInfo = None
         self.__dict_progress_bar = {}
+        self.__true_name_jellyfin = ''
         self.__creater_link = None
-        if config.jellyfin:
-            if os.name != 'nt':
-                self.__creater_link = CreaterSymlinksJellyfin()
+        if config.JELLYFIN_ENABLE:
+            self.__creater_link = CreaterSymlinkManager()
 
     def search_torrent(self, search_title: str) -> None:
         self.__list_torrent_info = self.tracker.get_tracker_list(search_title)
@@ -80,7 +80,8 @@ class BotClient:
             categories.append(torrent_info.short_category)
             items.append(f"{num + (num_ * 6)})    {torrent_info.name}\n")
 
-        add_text = self.__db_manager.get_info_text(categories, self.__last_search_title)
+        add_text, self.__true_name_jellyfin = self.__db_manager.get_info_text_and_names(categories,
+                                                                                        self.__last_search_title)
         return f"{''.join(items).replace(']', '').replace('[', '')} {add_text}"
 
     def get_torrent_info_list_len(self) -> int:
@@ -119,13 +120,18 @@ class BotClient:
     def __create_symlink(self, num: int | None = None) -> None:
         if self.__creater_link:
             torrent_: ABCTorrentInfo = self.__selected_torrent_info if not num else self.__list_torrent_info[num]
-            self.__creater_link.create_symlink(self.torrent.get_path(torrent_.id_torrent), category=torrent_.short_category)
+            self.__creater_link.create_symlink(self.torrent.get_path(torrent_.id_torrent), self.__true_name_jellyfin)
 
-    def start_download_with_progres_bar(self, num, update, context):
+    def start_download_with_progres_bar(self, num, update, context, other):
+        self.__start_download_torrent(num)
+        self.__start_progresbar(update, context)
+
         if self.torrent:
-            self.__start_download_torrent(num)
-            self.__start_progresbar(update, context)
-            self.__create_symlink()
+            if other == 'jl':
+                self.__create_symlink()
+            else:
+                pass
+
 
 
     def get_full_info_torrent(self, num: int) -> str:
@@ -144,6 +150,7 @@ class TelegramBot:
         self.application.add_handler(CommandHandler("start", self.cmd_start))
         self.application.add_handler(CommandHandler("search", self.cmd_search))
         self.application.add_handler(CommandHandler("download", self.cmd_download))
+        self.application.add_handler(CommandHandler("download_jl", self.cmd_download))
         self.application.add_handler(CommandHandler("look", self.cmd_look))
         self.application.add_handler(CommandHandler("help", self.cmd_help))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.user_msg))
@@ -162,6 +169,12 @@ class TelegramBot:
         ]]
         self.keyboard_list_none = []
 
+        self.__add_text_list_torrents = '\nДля скачивания:  /download {НОМЕР}\nДля просмотра:  /look {НОМЕР}'
+        if config.JELLYFIN_ENABLE:
+            self.__add_text_list_torrents = ('\nДля скачивания:  /download {НОМЕР}'
+                                             '\nДля скачивания с сим.: /download_jl {НОМЕР}'
+                                             '\nДля просмотра:  /look {НОМЕР}')
+
     def run(self):
         self.application.run_polling()
 
@@ -178,6 +191,7 @@ class TelegramBot:
                                               "Для поиска: /search {РЕСУРС} {НАЗВАНИЕ}\n"
                                               "РЕСУРС = [None(RuTracker), 1337]\n"
                                               "Для скачивания: /download {НОМЕР}\n"
+                                              "Для скачивания с сим.: /download_jl {НОМЕР}\n"
                                               "Для просмотра параметров: /look {НОМЕР}\n\n"
                                               "Для установки кастомного торрент клиента введите: "
                                               "/start {type}:{host}:{port}:{login}:{pass}\n"
@@ -226,9 +240,9 @@ class TelegramBot:
         if len(msg_arg) > 3:
             clients_ = BotClient(context, update, msg_arg)
         else:
-            if config.enable_white_list and (user_id in config.WHITE_LIST):
+            if config.ENABLE_WHITE_LIST and (user_id in config.WHITE_LIST):
                 clients_ = BotClient(context, update)
-            elif msg_arg[0] == config.pass_tg or not config.enable_pass_tg:
+            elif msg_arg[0] == config.PASS_TG or not config.ENABLE_PASS_TG:
                 clients_ = BotClient(context, update)
             else:
                 await self.edit_message_whit_try(context=context, chat_id=chat_id, msg=msg,
@@ -267,13 +281,17 @@ class TelegramBot:
                     kye = InlineKeyboardMarkup(self.keyboard_list_next)
                 await self.send_message_whit_try(context=context,
                                                  chat_id=update.effective_chat.id,
-                                                 text=f'''{torrent_info}\nДля скачивания:  /download {{НОМЕР}}\nДля просмотра:  /look {{НОМЕР}}''',
+                                                 text=f'''{torrent_info}{self.__add_text_list_torrents}''',
                                                  reply_markup=kye,
                                                  parse_mode="Markdown",
                                                  disable_web_page_preview=True)
 
     async def cmd_download(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         search_arg = update.message.text[10:]
+        other = ''
+        if search_arg[:2] == 'jl':
+            other = 'jl'
+            search_arg = search_arg[2:]
         print(search_arg)
         client = self.__get_client_by_chat_id(update.effective_chat.id)
         if not client:
@@ -294,7 +312,7 @@ class TelegramBot:
                             await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                              text=f"Номер: {search_arg} отсутствует")
                         else:
-                            client.start_download_with_progres_bar(search_arg, update, context)
+                            client.start_download_with_progres_bar(search_arg, update, context, other)
                 except:
                     await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                      text="Поле {НОМЕР} должно содержать цифру")
@@ -368,7 +386,7 @@ class TelegramBot:
                 kye = InlineKeyboardMarkup(self.keyboard_list_next_prev)
 
             torrent_info = client.get_torrent_info_part_list(self.num_list_torrent)
-            await self.query_update_whit_try(text=f'{torrent_info}\nДля скачивания:  /download {{НОМЕР}}\nДля просмотра:  /look {{НОМЕР}}',
+            await self.query_update_whit_try(text=f'{torrent_info}{self.__add_text_list_torrents}',
                                              reply_markup=kye,
                                              query=query,
                                              parse_mode="Markdown",

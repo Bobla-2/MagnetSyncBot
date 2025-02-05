@@ -4,7 +4,7 @@ from module.torrent_tracker.rutracker.rutracker_api.main import RutrackerApi
 import time
 from module.crypto_token.config import get_pass_rutreker, get_login_rutreker, proxy
 import module.crypto_token.config as config
-from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo
+from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo, ABCTorrenTracker
 
 def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
     for attempt in range(retries):
@@ -89,7 +89,7 @@ def singleton(cls):
     return get_instance
 
 @singleton
-class Rutracker:
+class Rutracker(ABCTorrenTracker):
     """
     Класс (абстракция на _Rutracker) для инициализации использует данные из crypto_token.config
 

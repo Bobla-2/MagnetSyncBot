@@ -1,7 +1,7 @@
 from transmission_rpc import Client as TransmissionClient
 from qbittorrentapi import Client as QBittorrentClient
 from abc import ABC, abstractmethod
-
+import time
 
 class TorrentManager(ABC):
     """Базовый интерфейс для торрент-менеджеров"""
@@ -108,14 +108,27 @@ class QBittorrentManager(TorrentManager):
                 download_dir = self.__default_dir
             self.__client.torrents_add(urls=magnet_url, savepath=download_dir)
             # Получаем последний добавленный торрент
-            torrents = self.__client.torrents_info(sort="added_on", reverse=True)
-            if torrents:
-                self.__id_last = torrents[0].hash
-                return self.__id_last
+            # torrents = self.__client.torrents_info(sort="added_on", reverse=True)
+            # if torrents:
+            #     self.__id_last = torrents[0].hash
+            # return self.__id_last
+            time.sleep(0.1)
+            torrents = self.__client.torrents_info()
+
+            # Поиск хеша по magnet-ссылке
+            # torrent_hash = next((t.hash for t in torrents if t.magnet_uri == magnet_url), '')
+            magnet_url = magnet_url.replace('+', '%20').lower()
+            torrent_hash = None
+            for t in torrents:
+                if t.magnet_uri[:100].lower() == magnet_url[:100]:
+                    torrent_hash = t.hash
+                    break  # Останавливаемся, как только нашли нужный торрент
+
+            return torrent_hash
         return ""
 
     def get_progress(self, id: str = None) -> float:
-        # print(self.get_path())
+        print(self.get_path())
         if not id:
             id = self.__id_last
         if id:
@@ -142,7 +155,7 @@ class QBittorrentManager(TorrentManager):
         '''
         if not id:
             id = self.__id_last
-        dir_ = self.__client.torrents_info(torrent_hash=id)[0].save_path
+        dir_ = self.__client.torrents_info(torrent_hash=id)[0].content_path
         print(f'{id} dir download  {dir_}')
         return dir_
 

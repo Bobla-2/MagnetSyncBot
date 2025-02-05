@@ -1,10 +1,10 @@
 from module.torrent_tracker.rutracker.rutrecker import Rutracker
 from module.torrent_tracker.x1337.x1337 import X1337
-from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo
+from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo, ABCTorrenTracker
 
 
 
-class TorrentTracker:
+class TorrentTracker(ABCTorrenTracker):
     def __init__(self):
         self.__rutecker = Rutracker()
         self.__x1337 = X1337()

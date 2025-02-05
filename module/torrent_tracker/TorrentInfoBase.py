@@ -48,3 +48,16 @@ class ABCTorrentInfo(ABC):
         """Возвращает простую категорию торрента из config.MEDIA_EXTENSIONS"""
         pass
 
+
+class ABCTorrenTracker(ABC):
+    '''Класс используемый для поиска тореннтов'''
+    @abstractmethod
+    def get_tracker_list(self, search_request: str) -> list[ABCTorrentInfo]:
+        '''
+        функция
+        :param search_request: поисковой запрос
+        :return: List[ABCTorrentInfo] возвращает список датаклассов с информацией о трекерах
+        '''
+        pass
+
+

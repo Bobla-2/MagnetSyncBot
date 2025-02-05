@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import time
-from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo
+from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo, ABCTorrenTracker
 import module.crypto_token.config as config
 
 
@@ -73,7 +73,13 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def short_category(self) -> str | None:
-        print("short_category на 1337 не реализованно")
+        for categories, _, condition, short_categories in config.MEDIA_EXTENSIONS:
+            if condition == "==":
+                if self.__category in categories:
+                    return short_categories
+            elif condition == "in":
+                if any(cat in self.__category for cat in categories):
+                    return short_categories
         return None
 
 def singleton(cls):
@@ -86,7 +92,7 @@ def singleton(cls):
 
 
 @singleton
-class X1337:
+class X1337(ABCTorrenTracker):
     '''
     Класс для взаимодействия с  1337 и выполнения поиска торрентов.
 
@@ -128,6 +134,10 @@ class X1337:
         torrent_list = []
         for row in table.find('tbody').find_all('tr'):
             name = row.find('td', class_='coll-1 name').find_all('a')[-1].text.strip()
+            category_class = row.find('td', class_='coll-1 name').find("i", class_=lambda x: x and x.startswith("flaticon-"))
+            icon_name = ''
+            if category_class:
+                icon_name = category_class["class"][0]
             seeds = row.find('td', class_='coll-2 seeds').text.strip()
             leeches = row.find('td', class_='coll-3 leeches').text.strip()
             upload_date = row.find('td', class_='coll-date').text.strip()
@@ -145,6 +155,7 @@ class X1337:
                                             leeches=leeches,
                                             year=upload_date,
                                             size=size,
+                                            category=icon_name
                                             ))
         return torrent_list
 

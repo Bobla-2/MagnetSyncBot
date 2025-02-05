@@ -1,5 +1,6 @@
 import os
 from module.crypto_token import config
+import paramiko
 
 
 def singleton(cls):
@@ -13,24 +14,24 @@ def singleton(cls):
 
 
 @singleton
-class CreaterSymlinksJellyfin:
-    def __select_category_folder(self, category) -> str | None:
-        for categories, folder_path, condition, _ in config.MEDIA_EXTENSIONS:
-            if condition == "==":
-                if category in categories:
-                    return folder_path
-            elif condition == "in":
-                if any(cat in category for cat in categories):
-                    return folder_path
-        return None
+class CreaterSymlinkManager:
+    def __init__(self):
+        if config.SYMLINK_IS_SSH:
+            self.__generator = SSHSymlinkCreator()
+            self.__generator.connect()
+        else:
+            self.__generator = CreaterSymlinks()
 
-    def create_symlink(self, original_path: str, category):
-        """Создает симлинк в Jellyfin для файла, заменяя /download/ на /mnt/nas_downloads/"""
-        relative_path = original_path.split(config.TORRENT_FOLDER, 1)[1]  # Берем всё после /download/
-        category_folder = self.__select_category_folder(category)
-        full_path_category = os.path.join(config.JELLYFIN_PATH, category_folder)
-        target_file = os.path.join(full_path_category, relative_path)
+    def create_symlink(self, original_path: str, custam_name: str):
+        target_path = f'{config.JELLYFIN_PATH}{original_path.replace(config.TORRENT_FOLDER, "")}{custam_name}'
+        print()
+        self.__generator.create_symlink(original_path, target_path)
 
+
+@singleton
+class CreaterSymlinks:
+
+    def create_symlink(self, original_path: str, target_file: str):
         if os.path.exists(target_file):
             print(f"Симлинк уже существует: {target_file}")
             return
@@ -41,6 +42,41 @@ class CreaterSymlinksJellyfin:
             print(f"Ошибка создания симлинка: {e}")
 
 
+
+@singleton
+class SSHSymlinkCreator:
+    def __init__(self):
+        self.__client = None
+
+    def connect(self):
+        """Устанавливает SSH-соединение."""
+        self.__client = paramiko.SSHClient()
+        self.__client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.__client.connect(
+            config.SYMLINK_HOST,
+            port=config.SYMLINK_PORT,
+            username=config.SYMLINK_LIGIN,
+            password=config.SYMLINK_PASS,
+        )
+
+    def create_symlink(self, original_path: str, targer_path) -> str:
+        """Создает символическую ссылку на удаленном сервере."""
+        if not self.__client:
+            raise ConnectionError("SSH-соединение не установлено")
+
+        command = f'ln -s "{original_path}" "{targer_path}"'
+        stdin, stdout, stderr = self.__client.exec_command(command)
+        error = stderr.read().decode()
+        if error:
+            raise RuntimeError(f"Ошибка при создании симлинка: {error}")
+        return stdout.read().decode().strip()
+
+    def close(self):
+        """Закрывает SSH-соединение."""
+        if self.__client:
+            self.__client.close()
+            self.__client = None
+
+# Пример использования
 if __name__ == "__main__":
-    s = CreaterSymlinksJellyfin()
-    s.create_symlink("/home/user/some/path/download/хуйня/", 'Аниме (SD Video)')
+    print(f'{config.JELLYFIN_PATH}{"/download/folder/".replace(config.TORRENT_FOLDER, "")}{"custam_name"}')

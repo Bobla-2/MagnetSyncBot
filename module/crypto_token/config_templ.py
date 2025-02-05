@@ -16,10 +16,10 @@ tornt_cli_pass = "transmission"
 ######################### - logining bot - #########################
 # пользовотелей из WHITE_LIST пускает без пароля
 enable_pass_tg = True
-# пароль для схода с настройками по умолчанию (/start {pass})
+# пароль для входа с настройками по умолчанию (/start {pass})
 pass_tg = "1234"
 
-enable_white_list = True
+ENABLE_WHITE_LIST = True
 WHITE_LIST = []   # id telegram, бот для id -> @idchatwebhelbiebot
 
 
@@ -36,8 +36,8 @@ def get_login_rutreker() -> str:
     return "None"
 
 ######################### - kinopoisk - #########################
-ENABLE_KINOPOISK = False
-API_TOKEN_KINOPOISK = 'TOKEN'
+ENABLE_KINOPOISK = False            # Включить геренацию подсказок во время поиска от кинопоиска
+API_TOKEN_KINOPOISK = 'TOKEN'       # ОЮЯЗАТЕЛЬНЫЙ токен если кинопоиск включен
 
 
 ######################### - jellyfin - #########################
@@ -48,7 +48,11 @@ jellyfin = True
 TORRENT_FOLDER = "/download/"       # абсолютный путь, в которую качаются торренты
 JELLYFIN_PATH = "/jellyfin/"        # абсолютный путь, откуда jellyfin берет медиа
 
-
+SYMLINK_IS_SSH = True               # True, если симлинки надо герерить на удаленном сервере
+SYMLINK_HOST = tornt_cli_host       # хост этого сервера
+SYMLINK_PORT = 22                   # порт
+SYMLINK_LIGIN = 'sas'               # логин
+SYMLINK_PASS = 'sas'                # и пароль
 # настройки сортировщика
 # он должен состоять из [[список категорий], относительный путь куда симлинк, тип сортировки]
 # тип сортировки может быть: "==" -> категория должна совпадать; "in" -> категория должна содержать ключевое слово
@@ -69,8 +73,7 @@ def __decrypt_data(key: bytes, data: bytes) -> str:
         return None
 
 
-
-categories_сinema = [
+categories_сinema_rutr = [
     "Кино СССР",
     "Детские отечественные фильмы",
     "Авторские дебюты",
@@ -142,7 +145,7 @@ categories_сinema = [
     "Мультсериалы (UHD Video)"
 ]
 
-categories_game = [
+categories_game_rutr = [
     "Игры для Windows",
     "Горячие Новинки",
     "Аркады",
@@ -217,7 +220,7 @@ categories_game = [
     "Видеопрохождения игр"
 ]
 
-categories_soft = [
+categories_soft_rutr = [
     "Операционные системы от Microsoft",
     "Оригинальные образы Windows",
     "Сборки Windows 8 и далее",
@@ -337,19 +340,40 @@ categories_soft = [
 ]
 
 
+categories_сinema_x1337 = ["flaticon-documentary", "flaticon-3d", "flaticon-divx", "flaticon-divx", "flaticon-video-dual-sound", "flaticon-dvd", "flaticon-h264", "flaticon-hd", "flaticon-hd", "flaticon-mp4", "flaticon-svcd", "flaticon-hd"]
+
+categories_anime_x1337 = ["flaticon-anime", "flaticon-ninja-portrait", "flaticon-video-dual-sound", "flaticon-divx", "flaticon-divx", "flaticon-divx"]
+
+categories_music_x1337 = ["flaticon-aac-file-type-rounded-rectangular-solid-interface-symbol", "flaticon-album", "flaticon-boxset", "flaticon-concert", "flaticon-discography", "flaticon-dvd", "flaticon-lossless", "flaticon-mp3", "flaticon-music-other", "flaticon-radio", "flaticon-music-single", "flaticon-music-video"]
+
+categories_soft_x1337 = ["flaticon-android", "flaticon-apple", "flaticon-linux", "flaticon-mac", "flaticon-other", "flaticon-apps"]
+
+categories_game_x1337 = ["flaticon-nds", "flaticon-dreamcast", "flaticon-nds", "flaticon-gamecube", "flaticon-old-joystick", "flaticon-apps", "flaticon-playstation", "flaticon-playstation", "flaticon-playstation", "flaticon-playstation", "flaticon-psp", "flaticon-psp", "flaticon-wii", "flaticon-xbox", "flaticon-xbox"]
+
+
 MEDIA_EXTENSIONS = [
     [['lossless', 'lossy'],
      "!music/", "in", "music"],
-    [['Аниме (HD Video)', 'Аниме (SD Video)', 'Аниме (DVD Video)', 'Аниме (QC подраздел)', 'Аниме (плеерный подраздел)', 'Японские мультфильмы'],
+
+    [categories_music_x1337,
+     "!music/", "==", "music"],
+
+    [categories_anime_x1337 + ['Аниме (HD Video)', 'Аниме (SD Video)', 'Аниме (DVD Video)', 'Аниме (QC подраздел)', 'Аниме (плеерный подраздел)', 'Японские мультфильмы'],
      "!anime/", "==", "anime"],
-    [categories_сinema,
+
+    [categories_сinema_rutr + categories_сinema_x1337,
      "!cinema/", "==", "cinema"],
-    [categories_game,
+
+    [categories_game_rutr + categories_game_x1337,
      "!soft/game/", "==", "game"],
-    [categories_soft,
+
+    [categories_soft_rutr + categories_soft_x1337,
      "!soft/soft/", "==", "soft"],
+
     [[''],
      "!other/", "in", "other"],
     ]
 
-
+if os.name == 'nt':
+    print("os.name == 'nt' -> JELLYFIN_ENABLE = False")
+    JELLYFIN_ENABLE = False
