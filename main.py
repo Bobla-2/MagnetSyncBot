@@ -1,7 +1,7 @@
 from telegram_app import TelegramBot
 from module.crypto_token import config
 import argparse
-
+import time
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Bot settings")
@@ -18,9 +18,12 @@ def parse_arguments():
 if __name__ == '__main__':
     parse_arguments()
 
-    tg_bot = TelegramBot(config.get_token())
+    tg_bot = TelegramBot()
+    tg_bot.setup(config.get_token())
     print("BOT STARTED")
-    try:
-        tg_bot.run()
-    except Exception as e:
-        print(f"tg_bot.run() ERROR {e}")
+    while True:
+        try:
+            tg_bot.run()
+        except Exception as e:
+            print(f"tg_bot.run() ERROR {e}")
+            time.sleep(1)

@@ -128,7 +128,7 @@ class QBittorrentManager(TorrentManager):
         return ""
 
     def get_progress(self, id: str = None) -> float:
-        print(self.get_path())
+        print(self.get_path(id))
         if not id:
             id = self.__id_last
         if id:

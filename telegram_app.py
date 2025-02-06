@@ -144,17 +144,9 @@ class TelegramBot:
     MAX_RETRIES = 6
     num_list_torrent = 0
 
-    def __init__(self, token):
+    def __init__(self):
         self.clients: List[BotClient] = []
-        self.application = Application.builder().token(token).build()
-        self.application.add_handler(CommandHandler("start", self.cmd_start))
-        self.application.add_handler(CommandHandler("search", self.cmd_search))
-        self.application.add_handler(CommandHandler("download", self.cmd_download))
-        self.application.add_handler(CommandHandler("download_jl", self.cmd_download))
-        self.application.add_handler(CommandHandler("look", self.cmd_look))
-        self.application.add_handler(CommandHandler("help", self.cmd_help))
-        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.user_msg))
-        self.application.add_handler(CallbackQueryHandler(self.handle_menu_selection))
+
 
         self.keyboard_list_next = [
             [InlineKeyboardButton("next   ->", callback_data="next")],
@@ -175,8 +167,20 @@ class TelegramBot:
                                              '\nДля скачивания с сим.: /download_jl {НОМЕР}'
                                              '\nДля просмотра:  /look {НОМЕР}')
 
+    def setup(self, token):
+        self.application = Application.builder().token(token).build()
+        self.application.add_handler(CommandHandler("start", self.cmd_start))
+        self.application.add_handler(CommandHandler("search", self.cmd_search))
+        self.application.add_handler(CommandHandler("download", self.cmd_download))
+        self.application.add_handler(CommandHandler("download_jl", self.cmd_download))
+        self.application.add_handler(CommandHandler("look", self.cmd_look))
+        self.application.add_handler(CommandHandler("help", self.cmd_help))
+        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.user_msg))
+        self.application.add_handler(CallbackQueryHandler(self.handle_menu_selection))
+
+
     def run(self):
-        self.application.run_polling()
+        self.application.run_polling(timeout=5, poll_interval=1)
 
     def __get_client_by_chat_id(self, chat_id: int) -> Optional[BotClient]:
         for client in self.clients:
