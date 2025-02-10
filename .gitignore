@@ -6,3 +6,4 @@ module/crypto_token/config.py
 *.gz
 *.pkl
 /logs
+/logs_backup

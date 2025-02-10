@@ -7,6 +7,9 @@ from fuzzywuzzy import fuzz
 from typing import List, Tuple
 from module.crypto_token.config import proxy
 from ..ABC import ABCDatabaseSearch
+import re
+from datetime import datetime, timedelta
+
 
 
 def singleton(cls):
@@ -22,6 +25,7 @@ def singleton(cls):
 @singleton
 class AnimeDatabaseSearch(ABCDatabaseSearch):
     def __init__(self):
+        self.__data_create = None
         self.__anime_list = AnimeDatabaseLoader().load_or_parse_database()
 
     def find_id_titles_id_by_request(self, search_title: str):
@@ -53,6 +57,10 @@ class AnimeDatabaseSearch(ABCDatabaseSearch):
         return []
 
     def get_names_and_url_title(self, search_title: str) -> (List[str], str):
+        if self.__check_creation_date():
+            AnimeDatabaseLoader().update_database()
+            self.__anime_list = AnimeDatabaseLoader().load_or_parse_database()
+            self.__data_create = AnimeDatabaseLoader().get_dat()
         _, anime_id = self.find_id_titles_id_by_request(search_title)
         list_ = self.get_titles_by_id(anime_id)
         return ([title[0] for title in list_
@@ -60,6 +68,21 @@ class AnimeDatabaseSearch(ABCDatabaseSearch):
                 title[0] for title in list_
                 if title[1] == 'ru' and title[2] in ('main', 'syn', 'official')],
                 f'[AniDB](https://anidb.net/anime/{anime_id})')
+
+    def __check_creation_date(self, len_days=14):
+        if not self.__data_create:
+            self.__data_create = AnimeDatabaseLoader().get_dat()
+
+        if self.__data_create:
+            current_time = datetime.now()
+            if current_time - self.__data_create > timedelta(days=len_days):
+                print(f"Прошло больше 14 дней с создания XML. Дата создания: {self.__data_create}")
+                return True
+            else:
+                print(f"С момента создания XML прошло меньше 14 дней. Дата создания: {self.__data_create}")
+        else:
+            print("Не удалось найти дату создания в XML.")
+        return False
 
 
 class AnimeDatabaseLoader:
@@ -71,6 +94,10 @@ class AnimeDatabaseLoader:
         self.__cache_file_path = os.path.join(cache_dir, 'anime_list_cache.pkl')
         self.__gz_file_path = os.path.join(cache_dir, 'anime-titles.xml.gz')
 
+    def update_database(self):
+        self.__download_database_xml()
+        self.__update_cache_from_xml()
+
     def load_or_parse_database(self):
         """Load the anime list from cache if it exists; otherwise, parse the XML file and create the cache."""
         if not os.path.exists(self.__cache_file_path):
@@ -78,9 +105,26 @@ class AnimeDatabaseLoader:
             if not self.__update_cache_from_xml():
                 print("XML file parse error, downloading...")
                 self.__download_database_xml()
+                self.__update_cache_from_xml()
 
         with open(self.__cache_file_path, 'rb') as f:
             return pickle.load(f)
+
+
+    def get_dat(self):
+        try:
+            with open(self.__xml_file_path, "r", encoding="utf-8") as file:
+                lines = file.readlines()  # Читаем файл построчно с конца
+
+            for line in reversed(lines):  # Ищем комментарий с конца файла
+                match = re.search(r"<!-- Created:\s*(.*?)\s*\(", line)
+                if match:
+                    date_str = match.group(1)
+                    return datetime.strptime(date_str, '%a %b %d %H:%M:%S %Y')
+                return None
+        except Exception as e:
+            print(f"Ошибка при обработке XML: {e}")
+            return None
 
     def __parse_xml_file(self):
         """Parse the XML file and return a list of anime."""
@@ -136,8 +180,6 @@ class AnimeDatabaseLoader:
                 with gzip.open(self.__gz_file_path, 'rb') as f_in:
                     with open(self.__xml_file_path, 'wb') as f_out:
                         f_out.write(f_in.read())
-                print("Extraction complete. Updating cache...")
-                self.__update_cache_from_xml()
             else:
                 print(f"Failed to download file. Status code: {response.status_code}")
 
@@ -147,8 +189,6 @@ class AnimeDatabaseLoader:
 
 if __name__ == '__main__':
     db = AnimeDatabaseSearch()
-
-    # Find an anime ID by title
     search_title = "Crest the"
     _, anime_id = db.find_id_titles_id_by_request(search_title)
     print(f"Anime ID for title '{search_title}':", anime_id)

@@ -2,7 +2,7 @@ import os
 from module.crypto_token import config
 import paramiko
 import re
-
+import asyncio
 def singleton(cls):
     instances = {}
 
@@ -22,7 +22,7 @@ class CreaterSymlinkManager:
         else:
             self.__generator = CreaterSymlinks()
 
-    def create_symlink(self, original_path: str, custam_name: str):
+    def create_symlink(self, original_path: str, custam_name: str, progress_value):
         target_path = f'{original_path.rsplit("/", 1)[0].replace(config.TORRENT_FOLDER, config.JELLYFIN_PATH)}/{custam_name}'
 
         original_path = original_path.replace('//', '/')
@@ -31,7 +31,11 @@ class CreaterSymlinkManager:
         target_path = re.sub(r'[:*?"<>|]', '', target_path)
         relative_path = os.path.relpath(original_path, start=os.path.dirname(target_path))
         relative_path = re.sub(r'[:*?"<>|]', '', relative_path)
+        asyncio.create_task(self.__start_create_symlink(relative_path, target_path, progress_value))
 
+    async def __start_create_symlink(self, relative_path, target_path, progress_value):
+        while progress_value() < 1.:
+            await asyncio.sleep(5)
         self.__generator.create_symlink(relative_path, target_path)
 
 

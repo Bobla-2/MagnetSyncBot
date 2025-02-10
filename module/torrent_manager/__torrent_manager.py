@@ -77,7 +77,7 @@ class TransmissionManager(TorrentManager):
         if not id:
             id = self.__id_last
         progress = self.__client.get_torrent(id).progress / 100
-        print(f'{id} progress download{progress}')
+        print(f'{id} progress download: {progress}')
         return progress
 
     def stop_download(self, id: int):
@@ -101,7 +101,7 @@ class QBittorrentManager(TorrentManager):
         self.__client = QBittorrentClient(host=f"{protocol}://{host}:{port}", username=username, password=password)
         self.__client.auth_log_in()
         self.__id_last: str = ""
-        self.__default_dir = self.__client.app_preferences()['save_path']
+        self.__default_dir = config.TORRENT_FOLDER
 
 
     def start_download(self, magnet_url: str, subfolder: str = '') -> str:

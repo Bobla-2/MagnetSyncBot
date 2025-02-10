@@ -1,3 +1,5 @@
+import time
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from telegram.error import NetworkError
@@ -118,18 +120,22 @@ class BotClient:
             name=f'{torrent_.name}',
             torrent_id=torrent_.id_torrent)
 
-    def __create_symlink(self, num: int | None = None) -> None:
+    def __create_symlink(self, num: int | None = None, arg_param=None) -> None:
         if self.__creater_link:
             torrent_: ABCTorrentInfo = self.__selected_torrent_info if not num else self.__list_torrent_info[num]
-            self.__creater_link.create_symlink(self.torrent.get_path(torrent_.id_torrent), self.__true_name_jellyfin)
+            name = self.__true_name_jellyfin
+            if arg_param:
+                name = arg_param
+            self.__creater_link.create_symlink(self.torrent.get_path(torrent_.id_torrent), name,
+                                               progress_value=lambda: self.torrent.get_progress(torrent_.id_torrent))
 
-    def start_download_with_progres_bar(self, num, update, context, other):
+    def start_download_with_progres_bar(self, num, update, context, other, arg_param=None):
         self.__start_download_torrent(num)
         self.__start_progresbar(update, context)
 
         if self.torrent:
             if other == 'jl':
-                self.__create_symlink()
+                self.__create_symlink(arg_param=arg_param)
             else:
                 pass
 
@@ -166,7 +172,7 @@ class TelegramBot:
         self.__add_text_list_torrents = '\nДля скачивания:  /download {НОМЕР}\nДля просмотра:  /look {НОМЕР}'
         if config.JELLYFIN_ENABLE:
             self.__add_text_list_torrents = ('\nДля скачивания:  /download {НОМЕР}'
-                                             '\nДля скачивания с сим.: /download\_jl {НОМЕР}'
+                                             '\nДля скачивания с сим.: /download\_jl {НОМЕР} {None|НАЗВАНИЕ}'
                                              '\nДля просмотра:  /look {НОМЕР}')
 
     def setup(self, token):
@@ -193,11 +199,11 @@ class TelegramBot:
     async def cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         chat_id = update.effective_chat.id
         await self.send_message_whit_try(context=context, chat_id=chat_id,
-                                         text="Для начала введите: /start\n"
+                                         text="Для начала введите: /start {None|pass}\n"
                                               "Для поиска: /search {РЕСУРС} {НАЗВАНИЕ}\n"
                                               "РЕСУРС = [None(RuTracker), 1337]\n"
                                               "Для скачивания: /download {НОМЕР}\n"
-                                              "Для скачивания с сим.: /download_jl {НОМЕР}\n"
+                                              "Для скачивания с сим.: /download\_jl {НОМЕР} {None|НАЗВАНИЕ}\n"
                                               "Для просмотра параметров: /look {НОМЕР}\n\n"
                                               "Для установки кастомного торрент клиента введите: "
                                               "/start {type}:{host}:{port}:{login}:{pass}\n"
@@ -297,34 +303,39 @@ class TelegramBot:
     async def cmd_download(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         search_arg = update.message.text[10:]
         other = ''
-        if search_arg[:2] == 'jl':
-            other = 'jl'
-            search_arg = search_arg[2:]
-        # print(f"cmd_download {search_arg}")
+        arg_param = None
         self.logger.log(f"cmd_download {search_arg}")
         client = self.__get_client_by_chat_id(update.effective_chat.id)
+
+        if search_arg[:2] == 'jl':
+            other = 'jl'
+            search_arg = search_arg.split()[1:]
+
         if not client:
             await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                              text="Для начала введите: /start")
         else:
-            if not search_arg:
+            if len(search_arg) < 1:
                 await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                  text="Поле {НОМЕР} должно содержать цифру")
             else:
                 try:
-                    search_arg = int(search_arg)
+                    num_ = int(search_arg[0])
                     if not client.torrent:
                         await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                          text="Ошибка подключения к торрент клиенту")
                     else:
-                        if client.get_torrent_info_list_len() < search_arg:
+                        if client.get_torrent_info_list_len() < num_ + 1:
                             await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
-                                                             text=f"Номер: {search_arg} отсутствует")
+                                                             text=f"Номер: {num_} отсутствует")
                         else:
-                            client.start_download_with_progres_bar(search_arg, update, context, other)
-                except:
+                            if len(search_arg) > 1:
+                                arg_param = ' '.join(search_arg[1:])
+                            client.start_download_with_progres_bar(num_, update, context, other, arg_param)
+                except Exception as e:
+                    self.logger.log(f"Ошибка: {e}")
                     await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
-                                                     text="Поле {НОМЕР} должно содержать цифру")
+                                                     text="Ошибка обработки команды")
 
     async def retry_operation(self, func, *args, retries=0, **kwargs):
         try:
@@ -437,7 +448,7 @@ class ProgressBar:
         self.__name = f'{name[:36]}...\n' if name else ''
         self.btn = btn
         self.state = 1
-        self.add_text: str = None
+        self.add_text: str | None = None
         self.logger = SimpleLogger()
 
         asyncio.create_task(self.__start_progress())
