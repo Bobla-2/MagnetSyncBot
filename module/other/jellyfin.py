@@ -1,7 +1,7 @@
 import os
 from module.crypto_token import config
 import paramiko
-
+import re
 
 def singleton(cls):
     instances = {}
@@ -23,14 +23,20 @@ class CreaterSymlinkManager:
             self.__generator = CreaterSymlinks()
 
     def create_symlink(self, original_path: str, custam_name: str):
-        target_path = f'{config.JELLYFIN_PATH}{original_path.replace(config.TORRENT_FOLDER, "")}{custam_name}'
-        print()
-        self.__generator.create_symlink(original_path, target_path)
+        target_path = f'{original_path.rsplit("/", 1)[0].replace(config.TORRENT_FOLDER, config.JELLYFIN_PATH)}/{custam_name}'
+
+        original_path = original_path.replace('//', '/')
+
+        target_path = target_path.replace('//', '/')
+        target_path = re.sub(r'[:*?"<>|]', '', target_path)
+        relative_path = os.path.relpath(original_path, start=os.path.dirname(target_path))
+        relative_path = re.sub(r'[:*?"<>|]', '', relative_path)
+
+        self.__generator.create_symlink(relative_path, target_path)
 
 
 @singleton
 class CreaterSymlinks:
-
     def create_symlink(self, original_path: str, target_file: str):
         if os.path.exists(target_file):
             print(f"Симлинк уже существует: {target_file}")
@@ -59,17 +65,27 @@ class SSHSymlinkCreator:
             password=config.SYMLINK_PASS,
         )
 
-    def create_symlink(self, original_path: str, targer_path) -> str:
+    def create_symlink(self, relative_path: str, targer_path):
         """Создает символическую ссылку на удаленном сервере."""
         if not self.__client:
             raise ConnectionError("SSH-соединение не установлено")
 
-        command = f'ln -s "{original_path}" "{targer_path}"'
-        stdin, stdout, stderr = self.__client.exec_command(command)
+        command = f'ln -s "{relative_path}" "{targer_path}"'.replace('\\\\', '\\').replace('\\', '/')
+        command_mkdir = f'mkdir -p "{targer_path.rsplit("/", 1)[0]}"'.replace('\\\\', '\\').replace('\\', '/')
+
+        stdin, stdout, stderr = self.__client.exec_command(command_mkdir)
         error = stderr.read().decode()
         if error:
-            raise RuntimeError(f"Ошибка при создании симлинка: {error}")
-        return stdout.read().decode().strip()
+            print(f"Ошибка при создании mkdir: {error}")
+
+        stdin, stdout, stderr = self.__client.exec_command(command, get_pty=True)
+        stdout.channel.set_combine_stderr(True)
+
+        # Чтение вывода и ошибок в одном потоке
+        output = stdout.read().decode('utf-8')
+        print(command)
+        print(output)
+        # return stdout.read().decode().strip()
 
     def close(self):
         """Закрывает SSH-соединение."""

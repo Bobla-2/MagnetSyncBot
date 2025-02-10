@@ -12,6 +12,7 @@ from module.title_serchers.manager_db import ManagerDB
 from typing import List, Optional
 import asyncio
 import os
+from module.logger.logger import SimpleLogger
 
 class BotClient:
     def __init__(self, context: ContextTypes.DEFAULT_TYPE, update: Update, torrent_settings: list = None):
@@ -146,6 +147,7 @@ class TelegramBot:
 
     def __init__(self):
         self.clients: List[BotClient] = []
+        self.logger = SimpleLogger()
 
 
         self.keyboard_list_next = [
@@ -164,7 +166,7 @@ class TelegramBot:
         self.__add_text_list_torrents = '\nДля скачивания:  /download {НОМЕР}\nДля просмотра:  /look {НОМЕР}'
         if config.JELLYFIN_ENABLE:
             self.__add_text_list_torrents = ('\nДля скачивания:  /download {НОМЕР}'
-                                             '\nДля скачивания с сим.: /download_jl {НОМЕР}'
+                                             '\nДля скачивания с сим.: /download\_jl {НОМЕР}'
                                              '\nДля просмотра:  /look {НОМЕР}')
 
     def setup(self, token):
@@ -216,7 +218,8 @@ class TelegramBot:
         else:
             try:
                 num_ = int(update.message.text.split()[1])
-                print(str(num_))
+                # print(f"cmd_look {num_}")
+                self.logger.log(f"cmd_look {num_}")
                 if client.get_torrent_info_list_len() < num_:
                     await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                      text=f"Номер: {num_} отсутствует")
@@ -265,7 +268,8 @@ class TelegramBot:
     async def cmd_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         self.num_list_torrent = 0
         search_arg = update.message.text[8:]
-        print(f"cmd_search {search_arg}")
+        # print(f"cmd_search {search_arg}")
+        self.logger.log(f"cmd_search {search_arg}")
         client = self.__get_client_by_chat_id(update.effective_chat.id)
         if not client:
             await self.send_message_whit_try(context=context,
@@ -296,7 +300,8 @@ class TelegramBot:
         if search_arg[:2] == 'jl':
             other = 'jl'
             search_arg = search_arg[2:]
-        print(search_arg)
+        # print(f"cmd_download {search_arg}")
+        self.logger.log(f"cmd_download {search_arg}")
         client = self.__get_client_by_chat_id(update.effective_chat.id)
         if not client:
             await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
@@ -326,17 +331,20 @@ class TelegramBot:
             return await func(*args, **kwargs)
         except Exception as e:
             if retries < self.MAX_RETRIES:
-                print(f"Ошибка сети Telegram: {e}. Попробую снова через 5 секунд. Попытка {retries + 1}/{self.MAX_RETRIES}.")
+                # print(f"Ошибка сети Telegram: {e}. Попробую снова через 5 секунд. Попытка {retries + 1}/{self.MAX_RETRIES}.")
+                self.logger.log(f"Ошибка сети Telegram: {e}. Попробую снова через 5 секунд. Попытка {retries + 1}/{self.MAX_RETRIES}.")
                 await asyncio.sleep(2)
                 if "Can't parse entities:" in str(e):
                     kwargs["parse_mode"] = None
                 return await self.retry_operation(func, *args, retries=retries + 1, **kwargs)
             else:
-                print(f"Ошибка после {self.MAX_RETRIES} попыток: {e}")
+                # print(f"Ошибка после {self.MAX_RETRIES} попыток: {e}")
+                self.logger.log(f"Ошибка после {self.MAX_RETRIES} попыток: {e}")
                 return None
 
     async def send_message_whit_try(self, chat_id, text, context, parse_mode=None, reply_markup=None, disable_web_page_preview = False):
-        print(text)
+        # print(text)
+        self.logger.log(text)
         return await self.retry_operation(
             context.bot.send_message,
             chat_id=chat_id,
@@ -347,7 +355,8 @@ class TelegramBot:
         )
 
     async def query_update_whit_try(self, text, query, parse_mode=None, reply_markup=None, disable_web_page_preview = False):
-        print(text)
+        # print(text)
+        self.logger.log(text)
         return await self.retry_operation(
             query.edit_message_text,
             text=text,
@@ -357,7 +366,8 @@ class TelegramBot:
         )
 
     async def edit_message_whit_try(self, chat_id, text, context, msg, parse_mode=None, reply_markup=None):
-        print(text)
+        # print(text)
+        self.logger.log(text)
         return await self.retry_operation(
             context.bot.edit_message_text,
             chat_id=chat_id,
@@ -428,6 +438,8 @@ class ProgressBar:
         self.btn = btn
         self.state = 1
         self.add_text: str = None
+        self.logger = SimpleLogger()
+
         asyncio.create_task(self.__start_progress())
 
     def __generate_progress_bar(self, progress: float) -> str:
@@ -462,9 +474,10 @@ class ProgressBar:
                                                                    reply_markup=self.btn)
                     if self.state == 0:
                         break
-                        # self.state = 1
+
 
                 except NetworkError as e:
+                    self.logger.log(f"Ошибка сети: {e}")
                     print(f"Ошибка сети: {e}")
             await asyncio.sleep(3)
             progress = self.__progress_value()
@@ -474,7 +487,8 @@ class ProgressBar:
                 await self.__context.bot.edit_message_text(chat_id=self.__chat_id, message_id=self.__msg.message_id,
                                                 text=f"{self.__name}Прогресс: {progress_bar}\nЗагрузка завершена!")
         except NetworkError as e:
-            print(f"Ошибка сети: {e}")
+            self.logger.log(f"Ошибка сети: {e}")
+            # print(f"Ошибка сети: {e}")
 
 
 class ProgressBarWithBtn(ProgressBar):

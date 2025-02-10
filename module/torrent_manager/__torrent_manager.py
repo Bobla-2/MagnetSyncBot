@@ -2,6 +2,7 @@ from transmission_rpc import Client as TransmissionClient
 from qbittorrentapi import Client as QBittorrentClient
 from abc import ABC, abstractmethod
 import time
+from module.crypto_token import config
 
 class TorrentManager(ABC):
     """Базовый интерфейс для торрент-менеджеров"""
@@ -51,12 +52,15 @@ class TransmissionManager(TorrentManager):
         self.__client = TransmissionClient(host=host, port=port, username=username, password=password,
                                            protocol=protocol)
         self.__id_last: int = 0
-        self.__default_dir = self.__client.session().get('download-dir')
+        time.sleep(1)
+        # self.__default_dir = self.__client.get_session()
+        # self.__default_dir = self.__default_dir.get('download-dir')
+        self.__default_dir = config.TORRENT_FOLDER
 
     def start_download(self, magnet_url: str, subfolder: str = "") -> int:
         if magnet_url != "":
             if subfolder:
-                download_dir = f"{self.__default_dir}/{subfolder}"
+                download_dir = f"{self.__default_dir}/{subfolder}"[:-1]
             else:
                 download_dir = self.__default_dir
 

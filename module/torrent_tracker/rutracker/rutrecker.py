@@ -141,11 +141,11 @@ class _Rutracker:
 
     def get_search_list(self, search_request, page_deepth=1) -> list[ABCTorrentInfo]:
         page = 1
-        search = self.__rutracker.search(search_request, "desc", "size", page)
+        search = self.__rutracker.search(search_request, "desc", "seeds", page)
         search_results = search['result']
         if search['total_pages'] > search['page'] and search['page'] != page_deepth:
             page += 1
-            search = self.__rutracker.search(search_request, "desc", "size", page)
+            search = self.__rutracker.search(search_request, "desc", "seeds", page)
             search_results += search['result']
         torrent_list = [TorrentInfo(name=res["title"],
                                     category=res["category"],

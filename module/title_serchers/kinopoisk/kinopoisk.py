@@ -4,7 +4,7 @@ from module.crypto_token import config
 from typing import List, Tuple
 
 
-def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
+def _retries_retry_operation(func, *args, retries: int = 2, **kwargs):
     for attempt in range(retries):
         try:
             return func(*args, **kwargs)

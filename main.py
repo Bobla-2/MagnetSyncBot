@@ -2,6 +2,7 @@ from telegram_app import TelegramBot
 from module.crypto_token import config
 import argparse
 import time
+from module.logger.logger import SimpleLogger
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Bot settings")
@@ -12,7 +13,7 @@ def parse_arguments():
         config.proxy = args.proxy
     if args.jellyfin:
         config.jellyfin = args.jellyfin
-    print(f"Принят параметр: {args}")
+    SimpleLogger().log(f"Принят параметр: {args}")
 
 
 if __name__ == '__main__':
@@ -20,10 +21,12 @@ if __name__ == '__main__':
 
     tg_bot = TelegramBot()
     tg_bot.setup(config.get_token())
-    print("BOT STARTED")
+    SimpleLogger().log("BOT STARTED")
     while True:
         try:
             tg_bot.run()
         except Exception as e:
-            print(f"tg_bot.run() ERROR {e}")
+            SimpleLogger().log(f"tg_bot.run() ERROR {e}")
             time.sleep(1)
+
+

@@ -42,6 +42,10 @@ unzip MagnetSyncBot.zip
 ```
 **3) Создать файл настроек**
 
+```
+sudo nano ./MagnetSyncBot/module/crypto_token/config.py
+```
+
 Алгоритм описан в [Настройка_конфигурации](#Настройка_конфигурации)
 
 **4) Сборка образа** 
@@ -50,7 +54,7 @@ docker build -t magnetsyncbot /home/$USER/MagnetSyncBot/
 ```
 **5-1) Создание контейнера**
 ```
-docker run -d -p 10811:10811 -p 8080:8080 -p 9091:9091 --name magnetsyncbot magnetsyncbot
+docker run -d -p 8080:8080 -p 9091:9091 --name magnetsyncbot magnetsyncbot
 ```
 10811 - порт прокси;
 8080 - qBittorrent;
