@@ -50,7 +50,7 @@ sudo nano ./MagnetSyncBot/module/crypto_token/config.py
 
 **4) Сборка образа** 
 ```
-docker build -t magnetsyncbot /home/$USER/MagnetSyncBot/
+docker build -t magnetsyncbot ./MagnetSyncBot/
 ```
 **5-1) Создание контейнера**
 ```
@@ -62,10 +62,8 @@ docker run -d -p 8080:8080 -p 9091:9091 --name magnetsyncbot magnetsyncbot
 
 **5-2) Создание контейнера docker-compose**
 ```
-docker-compose up -d
+cd ./MagnetSyncBot && docker compose up -d
 ```
-
-
 
 
 ## Настройка_конфигурации

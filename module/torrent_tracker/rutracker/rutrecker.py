@@ -23,13 +23,15 @@ class TorrentInfo(ABCTorrentInfo):
 
     имеет несколько @property, берущих данные со страници рутрекера через парсер RutrackerParserPage
     """
-    __slots__ = ('__category', '__name', '__year', '__url', '__parser', '__id_torrent', '__forum_name')
+    __slots__ = ('__category', '__name', '__year', '__url', '__size_', '__parser', '__id_torrent', '__forum_name')
 
     def __init__(self, category: str = '',
                  name: str = None,
                  year: str = None,
                  url: str = None,
-                 forum_name: str = None):
+                 forum_name: str = None,
+                 size: float = None):
+
         self.__forum_name = forum_name
         self.__category = category
         self.__name = name
@@ -38,14 +40,15 @@ class TorrentInfo(ABCTorrentInfo):
         # self.magnet = magnet
         self.__parser = RutrackerParserPage(self.__url)
         self.__id_torrent = None
+        self.__size_ = f'{size} MB' if size < 800. else f'{round(size / 1024, 2)} GB'
 
     @property
     def name(self) -> str:
-        return f"{self.__name[:110]}\n"
+        return f"{self.__name[:105]}"
 
     @property
-    def __size(self) -> str:
-        return self.__parser.get_size()
+    def size(self) -> str:
+        return self.__size_
 
     @property
     def get_magnet(self) -> str:
@@ -76,7 +79,7 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def full_info(self) -> str:
-        return (f"{self.__name}\n\n*Вес:* {self.__size}\n*Категория:* {self.__category}\n{self.get_other_data[:2000]}\n"
+        return (f"{self.__name}\n\n*Вес:* {self.__size_}\n*Категория:* {self.__category}\n{self.get_other_data[:2000]}\n"
                 f"[страница]({self.__url})")
 
 
@@ -149,7 +152,8 @@ class _Rutracker:
             search_results += search['result']
         torrent_list = [TorrentInfo(name=res["title"],
                                     category=res["category"],
-                                    url=res["url"]) for res in search_results]
+                                    url=res["url"],
+                                    size=round(res["size"]/1048576, 2)) for res in search_results]
         print(torrent_list)
         return torrent_list
 
@@ -217,7 +221,7 @@ class RutrackerParserPage:
 
 
 if __name__ == '__main__':
-    p = Rutracker().get_tracker_list("python")
-    print(p[0].get_magnet)
+    p = Rutracker().get_tracker_list("PyCharm Professional")
+    print(p[0].get_magnet, p[0].size)
 
 

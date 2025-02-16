@@ -2,7 +2,7 @@ import requests
 import time
 from module.crypto_token import config
 from typing import List, Tuple
-
+from ..ABC import ABCDatabaseSearch
 
 def _retries_retry_operation(func, *args, retries: int = 2, **kwargs):
     for attempt in range(retries):
@@ -26,7 +26,7 @@ def singleton(cls):
 
 
 @singleton
-class KinopoiskDatabaseSearch:
+class KinopoiskDatabaseSearch(ABCDatabaseSearch):
     def __init__(self):
         self.__BASE_URL = "https://api.kinopoisk.dev/v1.4/movie/search"
         self.__headers = {

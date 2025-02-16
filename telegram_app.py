@@ -81,7 +81,7 @@ class BotClient:
         items = []
         for num, torrent_info in enumerate(self.__list_torrent_info[6 * num_:6 * (num_ + 1)]):
             categories.append(torrent_info.short_category)
-            items.append(f"{num + (num_ * 6)})    {torrent_info.name}\n")
+            items.append(f"{num + (num_ * 6)})    {torrent_info.name} || {torrent_info.size}\n\n")
 
         add_text, self.__true_name_jellyfin = self.__db_manager.get_info_text_and_names(categories,
                                                                                         self.__last_search_title)
@@ -103,9 +103,10 @@ class BotClient:
                         self.__selected_torrent_info.get_magnet,
                         subdir)
 
-    def stop_download(self, id_torrent: int) -> None:
+    def stop_download_torrent(self, id_torrent: int) -> None:
         self.torrent.stop_download(id_torrent)
         self.__dict_progress_bar[str(id_torrent)].stop_progress()
+        self.__creater_link.stop_task(str(id_torrent))
 
     def __start_progresbar(self, update, context, num=None):
         '''
@@ -123,11 +124,14 @@ class BotClient:
     def __create_symlink(self, num: int | None = None, arg_param=None) -> None:
         if self.__creater_link:
             torrent_: ABCTorrentInfo = self.__selected_torrent_info if not num else self.__list_torrent_info[num]
-            name = self.__true_name_jellyfin
             if arg_param:
                 name = arg_param
+            else:
+                name = self.__true_name_jellyfin
+            if not name:
+                return
             self.__creater_link.create_symlink(self.torrent.get_path(torrent_.id_torrent), name,
-                                               progress_value=lambda: self.torrent.get_progress(torrent_.id_torrent))
+                                               progress_value=lambda: self.torrent.get_progress(torrent_.id_torrent), id=torrent_.id_torrent)
 
     def start_download_with_progres_bar(self, num, update, context, other, arg_param=None):
         self.__start_download_torrent(num)
@@ -138,7 +142,6 @@ class BotClient:
                 self.__create_symlink(arg_param=arg_param)
             else:
                 pass
-
 
 
     def get_full_info_torrent(self, num: int) -> str:
@@ -420,7 +423,7 @@ class TelegramBot:
         elif "_" in query.data:
             data = query.data.split("_")
             if data[0] == "cancel":
-                client.stop_download(int(data[1]))
+                client.stop_download_torrent(int(data[1]))
 
 
 class ProgressBar:
@@ -465,7 +468,6 @@ class ProgressBar:
         progress = 0.
         progress_bar = None
         while progress < 1.:
-
             progress_bar = self.__generate_progress_bar(progress)
             if self.state == 0:
                 self.btn = None
@@ -485,7 +487,6 @@ class ProgressBar:
                                                                    reply_markup=self.btn)
                     if self.state == 0:
                         break
-
 
                 except NetworkError as e:
                     self.logger.log(f"Ошибка сети: {e}")

@@ -7,5 +7,3 @@ services:
     ports:
       - "8080:8080"   # qBittorrent
       - "9091:9091"   # transmission
-    volumes:
-      - /home/sas/Jellyfin/media/music:/Jellyfin  # Папка для Jellyfin

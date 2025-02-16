@@ -52,5 +52,5 @@ def zip_folder(folder_path, zip_path):
 if __name__ == "__main__":
     copy_directory(SOURCE_DIR, DEST_DIR)  # Копируем папку
     delete_files_and_folders(DEST_DIR)    # Чистим ненужные файлы/папки
-    zip_folder(DEST_DIR, DEST_DIR + '.zip')
+    # zip_folder(DEST_DIR, DEST_DIR + '\MagnetSyncBot.zip')
     print("✅ Операция завершена!")

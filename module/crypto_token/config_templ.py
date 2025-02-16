@@ -1,16 +1,18 @@
 from cryptography.fernet import Fernet
-
+import os
 
 
 ######################### - proxy - #########################
 proxy = 'http://127.0.0.1:10809'
 
+# ссылка на 1337х
+X1337_BASE_URL = 'https://1337x.to'
 ######################### - torrent client default - #########################
-tornt_cli_host = "192.168.1.74"
+tornt_cli_host = "192.168.1.1"
 tornt_cli_port = 9091
 tornt_cli_type = "transmission"
-tornt_cli_login = "transmission"
-tornt_cli_pass = "transmission"
+tornt_cli_login = "log"
+tornt_cli_pass = "pass"
 
 
 ######################### - logining bot - #########################
@@ -48,15 +50,15 @@ jellyfin = True
 TORRENT_FOLDER = "/download/"       # абсолютный путь, в которую качаются торренты
 JELLYFIN_PATH = "/jellyfin/"        # абсолютный путь, откуда jellyfin берет медиа
 
-SYMLINK_IS_SSH = True               # True, если симлинки надо герерить на удаленном сервере
+SYMLINK_IS_SSH = True               # True, если симлинки надо создавать на удаленном сервере
 SYMLINK_HOST = tornt_cli_host       # хост этого сервера
 SYMLINK_PORT = 22                   # порт
-SYMLINK_LIGIN = 'sas'               # логин
-SYMLINK_PASS = 'sas'                # и пароль
+SYMLINK_LIGIN = 'log'               # логин
+SYMLINK_PASS = 'pass'                # и пароль
 # настройки сортировщика
 # он должен состоять из [[список категорий], относительный путь куда симлинк, тип сортировки]
 # тип сортировки может быть: "==" -> категория должна совпадать; "in" -> категория должна содержать ключевое слово
-# СОРТИРОВЩИК ПЕРЕЕХАЛ В САМЫЙ НИЗ
+#!!!!!!!!! СОРТИРОВЩИК ПЕРЕЕХАЛ В САМЫЙ НИЗ!!!!!!!!!!!
 
 ################################################################################
 ################################################################################
@@ -353,25 +355,25 @@ categories_game_x1337 = ["flaticon-nds", "flaticon-dreamcast", "flaticon-nds", "
 
 MEDIA_EXTENSIONS = [
     [['lossless', 'lossy'],
-     "!music/", "in", "music"],
+     "1_music/", "in", "music"],
 
     [categories_music_x1337,
-     "!music/", "==", "music"],
+     "1_music/", "==", "music"],
 
     [categories_anime_x1337 + ['Аниме (HD Video)', 'Аниме (SD Video)', 'Аниме (DVD Video)', 'Аниме (QC подраздел)', 'Аниме (плеерный подраздел)', 'Японские мультфильмы'],
-     "!anime/", "==", "anime"],
+     "1_anime/", "==", "anime"],
 
     [categories_сinema_rutr + categories_сinema_x1337,
-     "!cinema/", "==", "cinema"],
+     "1_cinema/", "==", "cinema"],
 
     [categories_game_rutr + categories_game_x1337,
-     "!soft/game/", "==", "game"],
+     "1_soft/game/", "==", "game"],
 
     [categories_soft_rutr + categories_soft_x1337,
-     "!soft/soft/", "==", "soft"],
+     "1_soft/soft/", "==", "soft"],
 
     [[''],
-     "!other/", "in", "other"],
+     "1_other/", "in", "other"],
     ]
 
 if os.name == 'nt':

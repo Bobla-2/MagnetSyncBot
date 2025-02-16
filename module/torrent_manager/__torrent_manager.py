@@ -53,14 +53,12 @@ class TransmissionManager(TorrentManager):
                                            protocol=protocol)
         self.__id_last: int = 0
         time.sleep(1)
-        # self.__default_dir = self.__client.get_session()
-        # self.__default_dir = self.__default_dir.get('download-dir')
         self.__default_dir = config.TORRENT_FOLDER
 
     def start_download(self, magnet_url: str, subfolder: str = "") -> int:
         if magnet_url != "":
             if subfolder:
-                download_dir = f"{self.__default_dir}/{subfolder}"[:-1]
+                download_dir = f"{self.__default_dir}/{subfolder}"[:-1].replace('//', '/')
             else:
                 download_dir = self.__default_dir
 
@@ -91,7 +89,7 @@ class TransmissionManager(TorrentManager):
         if not id:
             id = self.__id_last
         torents = self.__client.get_torrent(id)
-        dir_ = f"{torents.download_dir}/{torents.name}"
+        dir_ = f"{torents.download_dir}/{torents.name}".replace('//', '/')
         print(f'{id} dir download  {dir_}')
         return dir_
 
@@ -107,27 +105,20 @@ class QBittorrentManager(TorrentManager):
     def start_download(self, magnet_url: str, subfolder: str = '') -> str:
         if magnet_url != "":
             if subfolder:
-                download_dir = f"{self.__default_dir}/{subfolder}"
+                download_dir = f"{self.__default_dir}/{subfolder}".replace('//', '/')
             else:
                 download_dir = self.__default_dir
             self.__client.torrents_add(urls=magnet_url, savepath=download_dir)
-            # Получаем последний добавленный торрент
-            # torrents = self.__client.torrents_info(sort="added_on", reverse=True)
-            # if torrents:
-            #     self.__id_last = torrents[0].hash
-            # return self.__id_last
+
             time.sleep(0.1)
             torrents = self.__client.torrents_info()
 
-            # Поиск хеша по magnet-ссылке
-            # torrent_hash = next((t.hash for t in torrents if t.magnet_uri == magnet_url), '')
             magnet_url = magnet_url.replace('+', '%20').lower()
             torrent_hash = None
             for t in torrents:
                 if t.magnet_uri[:100].lower() == magnet_url[:100]:
                     torrent_hash = t.hash
-                    break  # Останавливаемся, как только нашли нужный торрент
-
+                    break
             return torrent_hash
         return ""
 

@@ -24,13 +24,13 @@ class ABCDatabaseSearch(ABC):
         pass
 
     @abstractmethod
-    def get_names_and_url_title(self, search_request: str) -> (List[str], str):
+    def get_names_and_url_title(self, search_request: str) -> (list[str], str):
         """
         Get name title by search request.
         :param search_request: search request.
         :return: A tuple containing :
                  - 2-3 most popular names
-                 - url markdown
+                 - url markdown style
         """
         pass
 

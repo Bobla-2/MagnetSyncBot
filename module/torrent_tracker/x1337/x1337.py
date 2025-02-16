@@ -22,6 +22,8 @@ class TorrentInfo(ABCTorrentInfo):
 
     имеет несколько @property, берущих данные со страници
     """
+    __slots__ = ('__category', '__name', '__year', '__url', '__parser', '__id_torrent', '__size', '__seeds', '__leeches')
+
     def __init__(self, url: str = None,
                  category: str = '',
                  name: str = None,
@@ -39,11 +41,14 @@ class TorrentInfo(ABCTorrentInfo):
         self.__seeds = seeds
         self.__leeches = leeches
         self.__id_torrent = None
-    __slots__ = ('__category', '__name', '__year', '__url', '__parser', '__id_torrent', '__size', '__seeds', '__leeches')
 
     @property
     def name(self) -> str:
-        return f"{self.__name[:110]}\n"
+        return f"{self.__name[:105]}"
+
+    @property
+    def size(self) -> str:
+        return self.__size
 
     @property
     def get_magnet(self) -> str:
@@ -106,7 +111,7 @@ class X1337(ABCTorrenTracker):
     '''
 
     def __init__(self, proxy_=None):
-        self.base_url = 'https://1337x.to'
+        self.base_url = config.X1337_BASE_URL
         self.__search_url = self.base_url + '/search/{}/1/'
 
         self.__proxies = {'http': proxy_ or config.proxy,
@@ -223,4 +228,4 @@ class _1337ParserPage:
 
 if __name__ == '__main__':
     p = X1337().get_tracker_list("python")
-    print(p[0].get_magnet)
+    print(p[0].get_magnet, p[0].size)

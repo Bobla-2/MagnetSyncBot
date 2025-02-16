@@ -16,8 +16,8 @@ class ABCTorrentInfo(ABC):
 
     @property
     @abstractmethod
-    def get_other_data(self) -> str:
-        """Другие данные торрента."""
+    def size(self) -> str:
+        """Размер торрента (например, в MB, GB)."""
         pass
 
     @property
