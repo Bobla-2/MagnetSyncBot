@@ -79,7 +79,7 @@ class BotClient:
         items = []
         for num, torrent_info in enumerate(self.__list_torrent_info[6 * num_:6 * (num_ + 1)]):
             categories.append(torrent_info.short_category)
-            items.append(f"{num + (num_ * 6)})    {self.escape_special_chars_translate(torrent_info.name)} || {torrent_info.size}\n\n")
+            items.append(f"{num + (num_ * 6)})    {torrent_info.name} || {torrent_info.size}\n\n")
 
         add_text, self.__true_name_jellyfin = self.__db_manager.get_info_text_and_names(categories,
                                                                                         self.__last_search_title)

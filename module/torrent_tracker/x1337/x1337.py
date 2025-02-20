@@ -44,7 +44,7 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def name(self) -> str:
-        return f"{self.__name[:105]}"
+        return f"{self.escape_special_chars_translate(self.__name[:105])}"
 
     @property
     def size(self) -> str:
@@ -56,7 +56,11 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def get_other_data(self) -> str:
-        return self.__parser.get_other_data()
+        data = self.__parser.get_other_data()
+        data_str = []
+        for dt in data:
+            data_str.append(f"*{dt[0]}*: {dt[1]}")
+        return "\n".join(data_str)
 
     @property
     def id_torrent(self) -> str:
@@ -70,9 +74,14 @@ class TorrentInfo(ABCTorrentInfo):
     def category(self) -> str:
         return ""
 
+    def escape_special_chars_translate(self, text) -> str:
+        special_chars = '_*[~`>#+=|{}!\\'
+        translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
+        return text.translate(translation_table)
+
     @property
     def full_info(self) -> str:
-        return (f"{self.__name}\n\n"
+        return (f"{self.escape_special_chars_translate(self.__name)}\n\n"
                 f"*leeches:* {self.__leeches}\n*seeds:* {self.__seeds}\n*дата:* {self.__year}\n{self.get_other_data}\n"
                 f"[страница]({self.__url})")
 
@@ -86,6 +95,7 @@ class TorrentInfo(ABCTorrentInfo):
                 if any(cat in self.__category for cat in categories):
                     return short_categories
         return None
+
 
 def singleton(cls):
     instances = {}
@@ -206,12 +216,12 @@ class _1337ParserPage:
                 return link['href']
             return None
 
-    def get_other_data(self) -> str:
+    def get_other_data(self) -> list:
         self.__load_page()
         if self.__soup:
             info_box = self.__soup.find('div', class_="box-info torrent-detail-page")
             if not info_box:
-                return "None"
+                return [['', 'пусто 1337']]
 
             data = []
             for li in info_box.find_all('li'):
@@ -221,8 +231,8 @@ class _1337ParserPage:
                 if strong and span:
                     key = strong.get_text(strip=True).lower().replace(" ", "_")  # Приводим ключ к виду snake_case
                     value = span.get_text(strip=True)
-                    data.append(f"*{key}* {value}")
-            return "\n".join(data)
+                    data.append([key, value])
+            return data
 
 
 

@@ -44,7 +44,7 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def name(self) -> str:
-        return f"{self.__name[:105]}"
+        return f"{self.escape_special_chars_translate(self.__name[:105])}"
 
     @property
     def size(self) -> str:
@@ -56,7 +56,11 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def get_other_data(self) -> str:
-        return self.__parser.get_other_data()
+        data = self.__parser.get_other_data()
+        data_str = []
+        for dt in data:
+            data_str.append(f"*{dt[0]}* {dt[1]}")
+        return "\n".join(data_str)
 
     @property
     def id_torrent(self) -> str:
@@ -76,10 +80,14 @@ class TorrentInfo(ABCTorrentInfo):
                 if any(cat in self.__category for cat in categories):
                     return short_categories
         return None
+    def escape_special_chars_translate(self, text) -> str:
+        special_chars = '_*[~`>#+=|{}!\\'
+        translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
+        return text.translate(translation_table)
 
     @property
     def full_info(self) -> str:
-        return (f"{self.__name}\n\n*Вес:* {self.__size_}\n*Категория:* {self.__category}\n{self.get_other_data[:2000]}\n"
+        return (f"{self.escape_special_chars_translate(self.__name)}\n\n*Вес:* {self.__size_}\n*Категория:* {self.__category}\n{self.get_other_data[:2000]}\n"
                 f"[страница]({self.__url})")
 
 
@@ -199,19 +207,13 @@ class RutrackerParserPage:
                 return size_text
         return "Ошибка размера"
 
-    def escape_special_chars_translate(self, text) -> str:
-        special_chars = '_*[~`>#+=|{}!\\'
-        translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
-        return text.translate(translation_table)
-
-
-    def get_other_data(self) -> str:
+    def get_other_data(self) -> list:
         self.__load_page()
         if self.__soup:
             post_body = self.__soup.find("div", class_="post_body")
 
             if not post_body:
-                return "Ошибка: Данные не найдены"
+                return [['', "Ошибка: Данные не найдены"]]
             data = []
             # print(post_body.find_all("span", class_="post-b"))
             for element in post_body.find_all("span", class_="post-b"):
@@ -221,8 +223,8 @@ class RutrackerParserPage:
                     sibling = sibling.next_sibling
 
                 value = sibling.strip() if sibling else ""  # Значение
-                data.append(f"*{key}* {self.escape_special_chars_translate(value)}")
-            return "\n".join(data)
+                data.append([key, value])
+            return data
 
 
 if __name__ == '__main__':

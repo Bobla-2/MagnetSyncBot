@@ -37,6 +37,8 @@ class CreaterSymlinkManager:
     async def __start_create_symlink(self, relative_path, target_path, progress_value):
         while progress_value() < 1.:
             await asyncio.sleep(5)
+        print(progress_value())
+        await asyncio.sleep(15)
         self.__generator.create_symlink(relative_path, target_path)
 
     def stop_task(self, id: str | int):
