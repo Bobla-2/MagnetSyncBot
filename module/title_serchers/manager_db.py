@@ -33,7 +33,7 @@ class ManagerDB:
                 names, url_str = db[0].get_names_and_url_title(search_title)
                 suggestions = "`\n - `".join(names)
                 add_text.append(f"----------------------------------------\n"
-                                f"**Возможно вы имели в виду:** {categories[0]}\n - `{suggestions}`\n"
+                                f"**Возможно вы имели в виду {db[1]}:** \n - `{suggestions}`\n"
                                 f"{url_str}\n")
         add_text.append("----------------------------------------")
         return ''.join(add_text), names[0]

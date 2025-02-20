@@ -30,7 +30,7 @@ class TorrentInfo(ABCTorrentInfo):
                  year: str = None,
                  url: str = None,
                  forum_name: str = None,
-                 size: float = None):
+                 size: float = 0.):
 
         self.__forum_name = forum_name
         self.__category = category
@@ -199,6 +199,11 @@ class RutrackerParserPage:
                 return size_text
         return "Ошибка размера"
 
+    def escape_special_chars_translate(self, text) -> str:
+        special_chars = '_*[~`>#+=|{}!\\'
+        translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
+        return text.translate(translation_table)
+
 
     def get_other_data(self) -> str:
         self.__load_page()
@@ -216,7 +221,7 @@ class RutrackerParserPage:
                     sibling = sibling.next_sibling
 
                 value = sibling.strip() if sibling else ""  # Значение
-                data.append(f"*{key}* {value}")
+                data.append(f"*{key}* {self.escape_special_chars_translate(value)}")
             return "\n".join(data)
 
 

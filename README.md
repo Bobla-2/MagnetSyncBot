@@ -40,7 +40,7 @@ wget https://github.com/Bobla-2/MagnetSyncBot/releases/latest/download/MagnetSyn
 ```
 unzip MagnetSyncBot.zip
 ```
-**3) Создать файл настроек**
+**3) Создать файл конфигурации**
 
 ```
 sudo nano ./MagnetSyncBot/module/crypto_token/config.py

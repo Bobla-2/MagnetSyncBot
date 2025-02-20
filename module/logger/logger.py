@@ -47,7 +47,10 @@ class SimpleLogger:
         # Записываем сообщение в лог
         with open(self.log_file, "a") as file:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            file.write(f"{timestamp} - {message}\n")
+            try:
+                file.write(f"{timestamp} - {message}\n")
+            except:
+                print("ошибка логирования: Logger")
             print(message)
 
     def end_log(self):

@@ -1,5 +1,3 @@
-import time
-
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from telegram.error import NetworkError
@@ -13,8 +11,8 @@ from module.title_serchers.kinopoisk.kinopoisk import KinopoiskDatabaseSearch
 from module.title_serchers.manager_db import ManagerDB
 from typing import List, Optional
 import asyncio
-import os
 from module.logger.logger import SimpleLogger
+
 
 class BotClient:
     def __init__(self, context: ContextTypes.DEFAULT_TYPE, update: Update, torrent_settings: list = None):
@@ -81,11 +79,16 @@ class BotClient:
         items = []
         for num, torrent_info in enumerate(self.__list_torrent_info[6 * num_:6 * (num_ + 1)]):
             categories.append(torrent_info.short_category)
-            items.append(f"{num + (num_ * 6)})    {torrent_info.name} || {torrent_info.size}\n\n")
+            items.append(f"{num + (num_ * 6)})    {self.escape_special_chars_translate(torrent_info.name)} || {torrent_info.size}\n\n")
 
         add_text, self.__true_name_jellyfin = self.__db_manager.get_info_text_and_names(categories,
                                                                                         self.__last_search_title)
-        return f"{''.join(items).replace(']', '').replace('[', '')} {add_text}"
+        return f"{''.join(items)} {add_text}"
+
+    def escape_special_chars_translate(self, text) -> str:
+        special_chars = '_*[~`>#+=|{}!\\'
+        translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
+        return text.translate(translation_table)
 
     def get_torrent_info_list_len(self) -> int:
         if self.__list_torrent_info:
@@ -188,7 +191,10 @@ class TelegramBot:
         self.application.add_handler(CommandHandler("help", self.cmd_help))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.user_msg))
         self.application.add_handler(CallbackQueryHandler(self.handle_menu_selection))
+        # self.application.add_error_handler(self.error_handler)
 
+    def error_handler(self, update, context):
+        print(f'error_handler --- {context.error}')
 
     def run(self):
         self.application.run_polling(timeout=5, poll_interval=1)
@@ -201,7 +207,7 @@ class TelegramBot:
 
     async def cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         chat_id = update.effective_chat.id
-        await self.send_message_whit_try(context=context, chat_id=chat_id,
+        await self.send_message_whit_try(context=context, chat_id=chat_id, parse_mode="Markdown",
                                          text="Для начала введите: /start {None|pass}\n"
                                               "Для поиска: /search {РЕСУРС} {НАЗВАНИЕ}\n"
                                               "РЕСУРС = [None(RuTracker), 1337]\n"

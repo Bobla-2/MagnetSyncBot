@@ -96,7 +96,8 @@ class TransmissionManager(TorrentManager):
 
 class QBittorrentManager(TorrentManager):
     def __init__(self, host, port, username, password, protocol='http'):
-        self.__client = QBittorrentClient(host=f"{protocol}://{host}:{port}", username=username, password=password)
+        self.__client = QBittorrentClient(host=f"{protocol}://{host}:{port}", username=username, password=password,
+                                          REQUESTS_ARGS={'timeout': (1, 5)})
         self.__client.auth_log_in()
         self.__id_last: str = ""
         self.__default_dir = config.TORRENT_FOLDER

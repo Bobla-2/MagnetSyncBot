@@ -24,11 +24,11 @@ class CreaterSymlinkManager:
             self.__generator = CreaterSymlinks()
 
     def create_symlink(self, original_path: str, custam_name: str, progress_value, id: int | str):
-        target_path = f'{original_path.rsplit("/", 1)[0].replace(config.TORRENT_FOLDER, config.JELLYFIN_PATH)}/{custam_name}'
-
+        path = f'{original_path.rsplit("/", 1)[0]}'
+        target_path = f'{path.replace(config.TORRENT_FOLDER[:-1], config.JELLYFIN_PATH[:-1])}/{custam_name}'
         original_path = original_path.replace('//', '/')
-
         target_path = target_path.replace('//', '/')
+
         target_path = re.sub(r'[:*?"<>|]', '', target_path)
         relative_path = os.path.relpath(original_path, start=os.path.dirname(target_path))
         relative_path = re.sub(r'[:*?"<>|]', '', relative_path)
