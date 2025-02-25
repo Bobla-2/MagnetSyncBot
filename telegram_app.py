@@ -24,6 +24,7 @@ class BotClient:
         self.tracker = TorrentTracker()
         self.x1337 = None
         self.torrent = None
+
         db = []
         if config.ENABLE_KINOPOISK:
             db.append((KinopoiskDatabaseSearch(), 'cinema'))
@@ -56,9 +57,9 @@ class BotClient:
         self.__selected_torrent_info: ABCTorrentInfo = None
         self.__dict_progress_bar = {}
         self.__true_name_jellyfin = ''
-        self.__creater_link = None
-        if config.JELLYFIN_ENABLE:
-            self.__creater_link = CreaterSymlinkManager()
+        self.creater_link = None
+        if config.JELLYFIN_ENABLE and torrent_settings == None:
+            self.creater_link = CreaterSymlinkManager()
 
     def search_torrent(self, search_title: str) -> None:
         self.__list_torrent_info = self.tracker.get_tracker_list(search_title)
@@ -109,7 +110,7 @@ class BotClient:
     def stop_download_torrent(self, id_torrent: int) -> None:
         self.torrent.stop_download(id_torrent)
         self.__dict_progress_bar[str(id_torrent)].stop_progress()
-        self.__creater_link.stop_task(str(id_torrent))
+        self.creater_link.stop_task(str(id_torrent))
 
     def __start_progresbar(self, update, context, num=None):
         '''
@@ -125,7 +126,7 @@ class BotClient:
             torrent_id=torrent_.id_torrent)
 
     def __create_symlink(self, num: int | None = None, arg_param=None) -> None:
-        if self.__creater_link:
+        if self.creater_link:
             torrent_: ABCTorrentInfo = self.__selected_torrent_info if not num else self.__list_torrent_info[num]
             if arg_param:
                 name = arg_param
@@ -133,7 +134,7 @@ class BotClient:
                 name = self.__true_name_jellyfin
             if not name:
                 return
-            self.__creater_link.create_symlink(self.torrent.get_path(torrent_.id_torrent), name,
+            self.creater_link.create_symlink(lambda: self.torrent.get_path(torrent_.id_torrent), name,
                                                progress_value=lambda: self.torrent.get_progress(torrent_.id_torrent), id=torrent_.id_torrent)
 
     def start_download_with_progres_bar(self, num, update, context, other, arg_param=None):
@@ -175,11 +176,14 @@ class TelegramBot:
         ]]
         self.keyboard_list_none = []
 
-        self.__add_text_list_torrents = '\nДля скачивания:  /download {НОМЕР}\nДля просмотра:  /look {НОМЕР}'
-        if config.JELLYFIN_ENABLE:
-            self.__add_text_list_torrents = ('\nДля скачивания:  /download {НОМЕР}'
-                                             '\nДля скачивания с сим.: /download\_jl {НОМЕР} {None|НАЗВАНИЕ}'
-                                             '\nДля просмотра:  /look {НОМЕР}')
+        self.__add_text_list_torrents_standatr = ('\nСкачать: /download {НОМЕР}'
+                                                  '\nПосмотреть: /look {НОМЕР}'
+                                                  '\nПоиск: /search {РЕСУРС} {НАЗВАНИЕ}')
+
+        self.__add_text_list_torrents_with_sym = ('\nСкачать: /download {НОМЕР}'
+                                                  '\nСкачать сим: /download\_jl {НОМЕР} {NAME}'
+                                                  '\nПосмотреть: /look {НОМЕР}'
+                                                  '\nПоиск: /search {РЕСУРС} {НАЗВАНИЕ}')
 
     def setup(self, token):
         self.application = Application.builder().token(token).build()
@@ -191,7 +195,6 @@ class TelegramBot:
         self.application.add_handler(CommandHandler("help", self.cmd_help))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.user_msg))
         self.application.add_handler(CallbackQueryHandler(self.handle_menu_selection))
-        # self.application.add_error_handler(self.error_handler)
 
     def error_handler(self, update, context):
         print(f'error_handler --- {context.error}')
@@ -233,7 +236,6 @@ class TelegramBot:
         else:
             try:
                 num_ = int(update.message.text.split()[1])
-                # print(f"cmd_look {num_}")
                 self.logger.log(f"cmd_look {num_}")
                 if client.get_torrent_info_list_len() < num_:
                     await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
@@ -283,7 +285,6 @@ class TelegramBot:
     async def cmd_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         self.num_list_torrent = 0
         search_arg = update.message.text[8:]
-        # print(f"cmd_search {search_arg}")
         self.logger.log(f"cmd_search {search_arg}")
         client = self.__get_client_by_chat_id(update.effective_chat.id)
         if not client:
@@ -302,9 +303,13 @@ class TelegramBot:
                     kye = InlineKeyboardMarkup(self.keyboard_list_none)
                 else:
                     kye = InlineKeyboardMarkup(self.keyboard_list_next)
+
+                add_text_list_torrents = self.__add_text_list_torrents_standatr
+                if config.JELLYFIN_ENABLE and client.creater_link and client.creater_link.is_connect:
+                    add_text_list_torrents = self.__add_text_list_torrents_with_sym
                 await self.send_message_whit_try(context=context,
                                                  chat_id=update.effective_chat.id,
-                                                 text=f'''{torrent_info}{self.__add_text_list_torrents}''',
+                                                 text=f'''{torrent_info}{add_text_list_torrents}''',
                                                  reply_markup=kye,
                                                  parse_mode="Markdown",
                                                  disable_web_page_preview=True)
@@ -351,19 +356,16 @@ class TelegramBot:
             return await func(*args, **kwargs)
         except Exception as e:
             if retries < self.MAX_RETRIES:
-                # print(f"Ошибка сети Telegram: {e}. Попробую снова через 5 секунд. Попытка {retries + 1}/{self.MAX_RETRIES}.")
                 self.logger.log(f"Ошибка сети Telegram: {e}. Попробую снова через 5 секунд. Попытка {retries + 1}/{self.MAX_RETRIES}.")
                 await asyncio.sleep(2)
                 if "Can't parse entities:" in str(e):
                     kwargs["parse_mode"] = None
                 return await self.retry_operation(func, *args, retries=retries + 1, **kwargs)
             else:
-                # print(f"Ошибка после {self.MAX_RETRIES} попыток: {e}")
                 self.logger.log(f"Ошибка после {self.MAX_RETRIES} попыток: {e}")
                 return None
 
     async def send_message_whit_try(self, chat_id, text, context, parse_mode=None, reply_markup=None, disable_web_page_preview = False):
-        # print(text)
         self.logger.log(text)
         return await self.retry_operation(
             context.bot.send_message,
@@ -374,8 +376,7 @@ class TelegramBot:
             disable_web_page_preview=disable_web_page_preview
         )
 
-    async def query_update_whit_try(self, text, query, parse_mode=None, reply_markup=None, disable_web_page_preview = False):
-        # print(text)
+    async def query_update_whit_try(self, text, query, parse_mode=None, reply_markup=None, disable_web_page_preview=False):
         self.logger.log(text)
         return await self.retry_operation(
             query.edit_message_text,
@@ -386,7 +387,6 @@ class TelegramBot:
         )
 
     async def edit_message_whit_try(self, chat_id, text, context, msg, parse_mode=None, reply_markup=None):
-        # print(text)
         self.logger.log(text)
         return await self.retry_operation(
             context.bot.edit_message_text,
@@ -420,7 +420,10 @@ class TelegramBot:
                 kye = InlineKeyboardMarkup(self.keyboard_list_next_prev)
 
             torrent_info = client.get_torrent_info_part_list(self.num_list_torrent)
-            await self.query_update_whit_try(text=f'{torrent_info}{self.__add_text_list_torrents}',
+            add_text_list_torrents = self.__add_text_list_torrents_standatr
+            if config.JELLYFIN_ENABLE and client.creater_link and client.creater_link.is_connect:
+                add_text_list_torrents = self.__add_text_list_torrents_with_sym
+            await self.query_update_whit_try(text=f'{torrent_info}{add_text_list_torrents}',
                                              reply_markup=kye,
                                              query=query,
                                              parse_mode="Markdown",
@@ -459,13 +462,12 @@ class ProgressBar:
         self.state = 1
         self.add_text: str | None = None
         self.logger = SimpleLogger()
-
         asyncio.create_task(self.__start_progress())
 
     def __generate_progress_bar(self, progress: float) -> str:
         filled_length = int(self.__total_step * progress)
         bar = "█" * filled_length + "–" * (self.__total_step - filled_length)
-        return f"[{bar}] {int(progress * 100)}%"
+        return f"\\[{bar}] {int(progress * 100)}%"
 
     async def __start_progress(self):
         await self.__progress()
@@ -486,11 +488,13 @@ class ProgressBar:
                     if not self.__msg:
                         self.__msg = await self.__context.bot.send_message(chat_id=self.__chat_id,
                                                                            text=f"{self.__name}Прогресс: {progress_bar}",
-                                                                           reply_markup=self.btn)
+                                                                           reply_markup=self.btn,
+                                                                           parse_mode="Markdown")
                     else:
                         await self.__context.bot.edit_message_text(chat_id=self.__chat_id, message_id=self.__msg.message_id,
                                                                    text=f"{self.__name}Прогресс: {progress_bar}",
-                                                                   reply_markup=self.btn)
+                                                                   reply_markup=self.btn,
+                                                                   parse_mode="Markdown")
                     if self.state == 0:
                         break
 
@@ -503,10 +507,10 @@ class ProgressBar:
             if self.state:
                 progress_bar = self.__generate_progress_bar(progress)
                 await self.__context.bot.edit_message_text(chat_id=self.__chat_id, message_id=self.__msg.message_id,
-                                                text=f"{self.__name}Прогресс: {progress_bar}\nЗагрузка завершена!")
+                                                text=f"{self.__name}Прогресс: {progress_bar}\nЗагрузка завершена!",
+                                                           parse_mode="Markdown")
         except NetworkError as e:
             self.logger.log(f"Ошибка сети: {e}")
-            # print(f"Ошибка сети: {e}")
 
 
 class ProgressBarWithBtn(ProgressBar):
@@ -522,7 +526,6 @@ class ProgressBarWithBtn(ProgressBar):
 
 
     def __generate_buttons(self) -> InlineKeyboardMarkup:
-        # Генерация кнопок с уникальным callback_data
         keyboard = [
             [InlineKeyboardButton("Отменить", callback_data=f"cancel_{self.__torrent_id}")]
         ]

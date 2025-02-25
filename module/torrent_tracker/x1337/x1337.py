@@ -44,7 +44,7 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def name(self) -> str:
-        return f"{self.escape_special_chars_translate(self.__name[:105])}"
+        return f"{self.escape_special_chars_translate(self.__name[:101])}"
 
     @property
     def size(self) -> str:
@@ -58,8 +58,13 @@ class TorrentInfo(ABCTorrentInfo):
     def get_other_data(self) -> str:
         data = self.__parser.get_other_data()
         data_str = []
+        current_length = 0
         for dt in data:
-            data_str.append(f"*{dt[0]}*: {dt[1]}")
+            string = f"*{dt[0]}* {dt[1]}"
+            data_str.append(string)
+            current_length += len(string)
+            if current_length > 1950:
+                break
         return "\n".join(data_str)
 
     @property
@@ -75,7 +80,7 @@ class TorrentInfo(ABCTorrentInfo):
         return ""
 
     def escape_special_chars_translate(self, text) -> str:
-        special_chars = '_*[~`>#+=|{}!\\'
+        special_chars = '_*[~`#=|{}!\\'
         translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
         return text.translate(translation_table)
 

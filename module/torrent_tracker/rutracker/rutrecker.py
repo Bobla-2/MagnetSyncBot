@@ -23,7 +23,7 @@ class TorrentInfo(ABCTorrentInfo):
 
     имеет несколько @property, берущих данные со страници рутрекера через парсер RutrackerParserPage
     """
-    __slots__ = ('__category', '__name', '__year', '__url', '__size_', '__parser', '__id_torrent', '__forum_name')
+    __slots__ = ('__category', '__name', '__year', '__url', '__size_', '__parser', '__id_torrent', '__forum_name', '__short_categories')
 
     def __init__(self, category: str = '',
                  name: str = None,
@@ -40,11 +40,12 @@ class TorrentInfo(ABCTorrentInfo):
         # self.magnet = magnet
         self.__parser = RutrackerParserPage(self.__url)
         self.__id_torrent = None
+        self.__short_categories = ''
         self.__size_ = f'{size} MB' if size < 800. else f'{round(size / 1024, 2)} GB'
 
     @property
     def name(self) -> str:
-        return f"{self.escape_special_chars_translate(self.__name[:105])}"
+        return f"{self.escape_special_chars_translate(self.__name[:101])}"
 
     @property
     def size(self) -> str:
@@ -58,8 +59,13 @@ class TorrentInfo(ABCTorrentInfo):
     def get_other_data(self) -> str:
         data = self.__parser.get_other_data()
         data_str = []
+        current_length = 0
         for dt in data:
-            data_str.append(f"*{dt[0]}* {dt[1]}")
+            string = f"*{dt[0]}* {dt[1]}"
+            data_str.append(string)
+            current_length += len(string)
+            if current_length > 1950:
+                break
         return "\n".join(data_str)
 
     @property
@@ -72,22 +78,24 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def short_category(self) -> str | None:
-        for categories, _, condition, short_categories in config.MEDIA_EXTENSIONS:
-            if condition == "==":
-                if self.__category in categories:
-                    return short_categories
-            elif condition == "in":
-                if any(cat in self.__category for cat in categories):
-                    return short_categories
-        return None
+        if not self.__short_categories:
+            for categories, _, condition, short_categories in config.MEDIA_EXTENSIONS:
+                if condition == "==":
+                    if self.__category in categories:
+                        self.__short_categories = short_categories
+                elif condition == "in":
+                    if any(cat in self.__category for cat in categories):
+                        self.__short_categories = short_categories
+            return None
+        return self.__short_categories
     def escape_special_chars_translate(self, text) -> str:
-        special_chars = '_*[~`>#+=|{}!\\'
+        special_chars = '_*[~`#=|{}!\\'
         translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
         return text.translate(translation_table)
 
     @property
     def full_info(self) -> str:
-        return (f"{self.escape_special_chars_translate(self.__name)}\n\n*Вес:* {self.__size_}\n*Категория:* {self.__category}\n{self.get_other_data[:2000]}\n"
+        return (f"{self.escape_special_chars_translate(self.__name)}\n\n*Вес:* {self.__size_}\n*Категория:* {self.__category}\n{self.get_other_data}\n"
                 f"[страница]({self.__url})")
 
 
