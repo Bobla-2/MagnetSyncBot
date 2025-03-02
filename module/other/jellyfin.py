@@ -38,8 +38,11 @@ class CreaterSymlinkManager:
         await asyncio.sleep(5)
         print("Генерация симлмнка")
         original_path = original_path()
-        path = f'{original_path.rsplit("/", 1)[0]}'
+        path, orig_name = original_path.rsplit("/", 1)
         target_path = f'{path.replace(config.TORRENT_FOLDER[:-1], config.JELLYFIN_PATH[:-1])}/{custam_name}'
+        split_orig_name = orig_name.rsplit(".", 1)
+        if len(split_orig_name) == 2:
+            target_path = f'{target_path}.{split_orig_name[1]}'
         original_path = original_path.replace('//', '/')
         target_path = target_path.replace('//', '/')
 

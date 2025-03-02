@@ -37,7 +37,6 @@ class TorrentInfo(ABCTorrentInfo):
         self.__name = name
         self.__year = year
         self.__url = url
-        # self.magnet = magnet
         self.__parser = RutrackerParserPage(self.__url)
         self.__id_torrent = None
         self.__short_categories = ''
@@ -61,7 +60,7 @@ class TorrentInfo(ABCTorrentInfo):
         data_str = []
         current_length = 0
         for dt in data:
-            string = f"*{dt[0]}* {dt[1]}"
+            string = f"*{self.escape_special_chars_translate(dt[0])}* {self.escape_special_chars_translate(dt[1])}"
             data_str.append(string)
             current_length += len(string)
             if current_length > 1950:
@@ -86,10 +85,13 @@ class TorrentInfo(ABCTorrentInfo):
                 elif condition == "in":
                     if any(cat in self.__category for cat in categories):
                         self.__short_categories = short_categories
-            return None
+
+            if not self.__short_categories:
+                self.__short_categories = "other"
         return self.__short_categories
-    def escape_special_chars_translate(self, text) -> str:
-        special_chars = '_*[~`#=|{}!\\'
+
+    def escape_special_chars_translate(self, text: str) -> str:
+        special_chars = '_*[~`#=|{}\\'
         translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
         return text.translate(translation_table)
 
@@ -116,7 +118,6 @@ class Rutracker(ABCTorrenTracker):
     в случае неудачи возвращает список с TorrentInfo содержащим сообщение об ошибке в поле 'name'
     """
     def __init__(self):
-
         self.__rutracker = _retries_retry_operation(_Rutracker,
                                                     username=get_login_rutreker(),
                                                     password=get_pass_rutreker(),
@@ -151,14 +152,14 @@ class _Rutracker:
     get_search_list(search_request: str, page_deepth: int = 2) -> list[TorrentInfo]:
         Выполняет поиск торрентов на Rutracker по заданному запросу. Возвращает список объектов `TorrentInfo`.
     '''
-    def __init__(self, username, password, proxy):
+    def __init__(self, username: str, password: str, proxy: str):
         """
         Инициализирует объект _Rutracker, выполняя авторизацию на Rutracker.
         """
         self.__rutracker = RutrackerApi(proxy=proxy)
         self.__rutracker.login(username, password)
 
-    def get_search_list(self, search_request, page_deepth=1) -> list[ABCTorrentInfo]:
+    def get_search_list(self, search_request: str, page_deepth: int = 1) -> list[ABCTorrentInfo]:
         page = 1
         search = self.__rutracker.search(search_request, "desc", "seeds", page)
         search_results = search['result']

@@ -22,7 +22,8 @@ class TorrentInfo(ABCTorrentInfo):
 
     имеет несколько @property, берущих данные со страници
     """
-    __slots__ = ('__category', '__name', '__year', '__url', '__parser', '__id_torrent', '__size', '__seeds', '__leeches')
+    __slots__ = ('__category', '__name', '__year', '__url', '__parser', '__id_torrent', '__size', '__seeds', '__leeches',
+                 '__short_categories')
 
     def __init__(self, url: str = None,
                  category: str = '',
@@ -41,6 +42,7 @@ class TorrentInfo(ABCTorrentInfo):
         self.__seeds = seeds
         self.__leeches = leeches
         self.__id_torrent = None
+        self.__short_categories = ''
 
     @property
     def name(self) -> str:
@@ -60,7 +62,7 @@ class TorrentInfo(ABCTorrentInfo):
         data_str = []
         current_length = 0
         for dt in data:
-            string = f"*{dt[0]}* {dt[1]}"
+            string = f"*{self.escape_special_chars_translate(dt[0])}* {self.escape_special_chars_translate(dt[1])}"
             data_str.append(string)
             current_length += len(string)
             if current_length > 1950:
@@ -79,7 +81,7 @@ class TorrentInfo(ABCTorrentInfo):
     def category(self) -> str:
         return ""
 
-    def escape_special_chars_translate(self, text) -> str:
+    def escape_special_chars_translate(self, text: str) -> str:
         special_chars = '_*[~`#=|{}!\\'
         translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
         return text.translate(translation_table)
@@ -92,14 +94,18 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def short_category(self) -> str | None:
-        for categories, _, condition, short_categories in config.MEDIA_EXTENSIONS:
-            if condition == "==":
-                if self.__category in categories:
-                    return short_categories
-            elif condition == "in":
-                if any(cat in self.__category for cat in categories):
-                    return short_categories
-        return None
+        if not self.__short_categories:
+            for categories, _, condition, short_categories in config.MEDIA_EXTENSIONS:
+                if condition == "==":
+                    if self.__category in categories:
+                        self.__short_categories = short_categories
+                elif condition == "in":
+                    if any(cat in self.__category for cat in categories):
+                        self.__short_categories = short_categories
+
+            if not self.__short_categories:
+                self.__short_categories = "other"
+        return self.__short_categories
 
 
 def singleton(cls):
@@ -132,9 +138,7 @@ class X1337(ABCTorrenTracker):
         self.__proxies = {'http': proxy_ or config.proxy,
                           'https': proxy_ or config.proxy}
 
-
-
-    def __get_search_list(self, query: str, search_url: str) -> [ABCTorrentInfo]:
+    def __get_search_list(self, query: str, search_url: str) -> list[ABCTorrentInfo]:
         search_url = search_url.format(query)
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'

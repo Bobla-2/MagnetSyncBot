@@ -43,7 +43,7 @@ class SimpleLogger:
         with open(self.log_file, "w") as file:
             file.write("")
 
-    def log(self, message):
+    def log(self, message: str):
         # Записываем сообщение в лог
         with open(self.log_file, "a") as file:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
