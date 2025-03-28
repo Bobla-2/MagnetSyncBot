@@ -195,6 +195,7 @@ class TelegramBot:
         self.application.add_handler(CommandHandler("help", self.cmd_help))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.user_msg))
         self.application.add_handler(CallbackQueryHandler(self.handle_menu_selection))
+        self.application.add_handler(MessageHandler(filters.Sticker.ALL, self.sticker_handler))
 
     def error_handler(self, update, context):
         print(f'error_handler --- {context.error}')
@@ -207,6 +208,13 @@ class TelegramBot:
             if client.chat_id == chat_id:
                 return client
         return None
+
+    async def sticker_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Игнорирует стикеры, чтобы бот не зависал."""
+        chat_id = update.effective_chat.id
+        await self.send_message_whit_try(context=context, chat_id=chat_id,
+                                         text="Стикер это не команда")
+
 
     async def cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         chat_id = update.effective_chat.id
