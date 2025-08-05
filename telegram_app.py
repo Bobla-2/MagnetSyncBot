@@ -1,4 +1,4 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from telegram.error import NetworkError
 from module.torrent_manager.manager import create_manager
@@ -14,12 +14,33 @@ import asyncio
 from module.logger.logger import SimpleLogger
 
 
+class ClientStatus:
+    __slots__ = ('status', 'answer_msg', 'bot_msg_id', 'num_torrents')
+
+    def __init__(self):
+        self.status = ""
+        self.answer_msg = None
+        self.bot_msg_id = None
+        self.num_torrents: int | None = None
+
+    def clear(self):
+        self.status = ""
+        self.answer_msg = None
+        self.bot_msg_id = None
+        self.num_torrents: int | None = None
+
+
+
 class BotClient:
     def __init__(self, context: ContextTypes.DEFAULT_TYPE, update: Update, torrent_settings: list = None):
         self.context = context
+        self.user_states: ClientStatus = ClientStatus()
         self.search_title = ""
         self.chat_id = update.effective_chat.id
         self.user_id = update.effective_user.id
+
+        self.tracker_type = config.TRACKERS[0]
+        self.old_ready_msg_id: int | None = None
 
         self.tracker = TorrentTracker()
         self.x1337 = None
@@ -54,16 +75,17 @@ class BotClient:
 
         self.__last_search_title = ""
         self.__list_torrent_info: List[ABCTorrentInfo] = []
-        self.__selected_torrent_info: ABCTorrentInfo = None
+        self.__selected_torrent_info: ABCTorrentInfo | None = None
         self.__dict_progress_bar = {}
         self.__true_name_jellyfin = ''
         self.creater_link = None
         if config.JELLYFIN_ENABLE and torrent_settings == None:
             self.creater_link = CreaterSymlinkManager()
 
-    def search_torrent(self, search_title: str) -> None:
-        self.__list_torrent_info = self.tracker.get_tracker_list(search_title)
+    def search_torrent(self, search_title: str, tracker_type: str) -> None:
+        self.__list_torrent_info = self.tracker.get_tracker_list(search_title, tracker_type)
         self.__last_search_title = search_title
+        self.__true_name_jellyfin = ''
 
     def get_torrent_info_part_list(self, num_: int) -> str:
         """
@@ -138,20 +160,22 @@ class BotClient:
                                                progress_value=lambda: self.torrent.get_progress(torrent_.id_torrent), id=torrent_.id_torrent)
 
     def start_download_with_progres_bar(self, num, update, context, other, arg_param=None):
+        print(num, other, arg_param)
         self.__start_download_torrent(num)
         self.__start_progresbar(update, context)
-
         if self.torrent:
             if other == 'jl':
                 self.__create_symlink(arg_param=arg_param)
             else:
                 pass
 
-
     def get_full_info_torrent(self, num: int) -> str:
         if not self.__list_torrent_info:
             return "Ничего не найдено"
         return self.__list_torrent_info[num].full_info
+
+    def get_default_name_jellyfin(self):
+        return self.__true_name_jellyfin
 
 
 class TelegramBot:
@@ -162,28 +186,20 @@ class TelegramBot:
         self.clients: List[BotClient] = []
         self.logger = SimpleLogger()
 
+        # self.__add_text_list_torrents_standatr = ('\nСкачать: /download {НОМЕР}'
+        #                                           '\nПосмотреть: /look {НОМЕР}'
+        #                                           '\nПоиск: /search {РЕСУРС} {НАЗВАНИЕ}')
+        #
+        # self.__add_text_list_torrents_with_sym = ('\nСкачать: /download {НОМЕР}'
+        #                                           '\nСкачать сим: /download\_jl {НОМЕР} {NAME}'
+        #                                           '\nПосмотреть: /look {НОМЕР}'
+        #                                           '\nПоиск: /search {РЕСУРС} {НАЗВАНИЕ}')
+        self.__add_text_list_torrents_standatr = ''
+        self.__add_text_list_torrents_with_sym = ''
 
-        self.keyboard_list_next = [
-            [InlineKeyboardButton("next   ->", callback_data="next")],
-        ]
-        self.keyboard_list_prev = [
-            [InlineKeyboardButton("<-   prev", callback_data="prev")],
-        ]
-        self.keyboard_list_next_prev = [[
-            InlineKeyboardButton("<-   prev", callback_data="prev"),
-            InlineKeyboardButton("next   ->", callback_data="next")
-
-        ]]
-        self.keyboard_list_none = []
-
-        self.__add_text_list_torrents_standatr = ('\nСкачать: /download {НОМЕР}'
-                                                  '\nПосмотреть: /look {НОМЕР}'
-                                                  '\nПоиск: /search {РЕСУРС} {НАЗВАНИЕ}')
-
-        self.__add_text_list_torrents_with_sym = ('\nСкачать: /download {НОМЕР}'
-                                                  '\nСкачать сим: /download\_jl {НОМЕР} {NAME}'
-                                                  '\nПосмотреть: /look {НОМЕР}'
-                                                  '\nПоиск: /search {РЕСУРС} {НАЗВАНИЕ}')
+        row_size = 3
+        rep_key_tracker = [config.TRACKERS[i:i + row_size] for i in range(0, len(config.TRACKERS), row_size)]
+        self.reply_markup_trackers = ReplyKeyboardMarkup(rep_key_tracker, resize_keyboard=True)
 
     def setup(self, token):
         self.application = Application.builder().token(token).build()
@@ -200,8 +216,42 @@ class TelegramBot:
     def error_handler(self, update, context):
         print(f'error_handler --- {context.error}')
 
+    def get_reply_markup(self, client: BotClient):
+        rep_keyboard = [
+            ["🔍 Поиск", f"📦 Трекер: {client.tracker_type}"]
+        ]
+        return ReplyKeyboardMarkup(rep_keyboard, resize_keyboard=True)
+
     def run(self):
         self.application.run_polling(timeout=5, poll_interval=1)
+
+    def get_keyboard_list_torrents(self, next: bool, prev: bool, begin: int = 0, end: int = 0) -> list:
+        if next and not prev:
+            keyboard_list = [
+                [InlineKeyboardButton("next   ->", callback_data="next")],
+            ]
+        elif not next and prev:
+            keyboard_list = [
+                [InlineKeyboardButton("<-   prev", callback_data="prev")],
+            ]
+        elif next and prev:
+            keyboard_list = [[
+                InlineKeyboardButton("<-   prev", callback_data="prev"),
+                InlineKeyboardButton("next   ->", callback_data="next")
+
+            ]]
+        else:
+            return []
+
+        buttons = []
+        for i in range(begin, end + 1):
+            buttons.append(InlineKeyboardButton(f"🔎{i}", callback_data=f"infolook_{i}"))
+            buttons.append(InlineKeyboardButton(f"⬇️{i}", callback_data=f"download_{i}"))
+            buttons.append(InlineKeyboardButton(f"🔗{i}", callback_data=f"ljsimlink_{i}"))
+        for i in range(3):
+            keyboard_list.append([buttons[j] for j in range(i, len(buttons) - 3 + i, 3)])
+
+        return keyboard_list
 
     def __get_client_by_chat_id(self, chat_id: int) -> Optional[BotClient]:
         for client in self.clients:
@@ -214,7 +264,6 @@ class TelegramBot:
         chat_id = update.effective_chat.id
         await self.send_message_whit_try(context=context, chat_id=chat_id,
                                          text="Стикер это не команда")
-
 
     async def cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         chat_id = update.effective_chat.id
@@ -229,28 +278,100 @@ class TelegramBot:
                                               "/start {type}:{host}:{port}:{login}:{pass}\n"
                                               "type = [qbittorrent, transmission]\n"
                                               "if host = 'https://', port = 443 \n"
-                                              )
+                                         )
 
     async def user_msg(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         chat_id = update.effective_chat.id
-        await self.send_message_whit_try(context=context, chat_id=chat_id,
-                                         text="Команда не распознана.\nДля справки введите: /help")
+        client = self.__get_client_by_chat_id(update.effective_chat.id)
+
+        if not client:
+            await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
+                                             text="Для начала введите: /start")
+            return
+
+        if client.user_states.status == "expecting_name":
+            num = client.user_states.num_torrents
+            if not num is None:
+                text = update.message.text
+                if not text.strip():
+                    await self.request_name_download(update, context)
+                else:
+                    await self.handler_cmd_download(update, context, num, text, 'jl')
+                    await self.retry_operation(
+                        context.bot.delete_message,
+                        chat_id=client.chat_id,
+                        message_id=client.user_states.bot_msg_id)
+                    client.user_states.clear()
+
+        elif client.user_states.status == "search":
+            text = update.message.text
+            await self.handler_cmd_search(update, context, text, client.tracker_type)
+            await self.retry_operation(
+                context.bot.delete_message,
+                chat_id=client.chat_id,
+                message_id=client.user_states.bot_msg_id)
+            client.user_states.clear()
+
+        elif client.user_states.status == "setup_tracker":
+            text = update.message.text
+            if not text in config.TRACKERS:
+                print("ошибка выставления трекера")
+                return
+            client.tracker_type = text
+            await self.set_reply_markup(client, update)
+            await self.retry_operation(
+                context.bot.delete_message,
+                chat_id=client.chat_id,
+                message_id=client.user_states.bot_msg_id)
+            client.user_states.clear()
+        elif "🔍 Поиск" in update.message.text and not client.user_states.status:
+            client.user_states.status = "search"
+            msg = await self.send_message_whit_try(context=context, chat_id=chat_id,
+                                                   text="Введите запрос")
+            # client.user_states.bot_msg[0] = update.effective_chat.id
+            client.user_states.bot_msg_id = msg.message_id
+        elif "📦 Трекер:" in update.message.text and not client.user_states.status:
+            client.user_states.status = "setup_tracker"
+            msg = await self.retry_operation(
+                update.message.reply_text,
+                reply_markup=self.reply_markup_trackers,
+                text="Выберете трекер")
+            client.user_states.bot_msg_id = msg.message_id
+        else:
+            text = update.message.text
+            await self.handler_cmd_search(update, context, text, client.tracker_type)
+            client.user_states.clear()
+            # await self.send_message_whit_try(context=context, chat_id=chat_id,
+            #                                  text="Команда не распознана.\nДля справки введите: /help")
+
+        await self.retry_operation(
+            context.bot.delete_message,
+            chat_id=update.effective_chat.id,
+            message_id=update.message.message_id)
 
     async def cmd_look(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        try:
+            num_ = int(update.message.text.split()[1])
+            self.logger.log(f"cmd_look {num_}")
+            await self.handler_cmd_look(update, context, num_)
+        except Exception as e:
+            await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
+                                             text="Поле {НОМЕР} не должно быть пустым")
+
+    async def handler_cmd_look(self, update: Update, context: ContextTypes.DEFAULT_TYPE, num: int) -> None:
         client = self.__get_client_by_chat_id(update.effective_chat.id)
         if not client:
             await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                              text="Для начала введите: /start")
         else:
             try:
-                num_ = int(update.message.text.split()[1])
-                self.logger.log(f"cmd_look {num_}")
-                if client.get_torrent_info_list_len() < num_:
+                self.logger.log(f"cmd_look {num}")
+                if client.get_torrent_info_list_len() < num:
                     await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
-                                                     text=f"Номер: {num_} отсутствует")
+                                                     text=f"Номер: {num} отсутствует")
                 else:
                     await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
-                                                     text=client.get_full_info_torrent(num_),
+                                                     text=client.get_full_info_torrent(num),
                                                      parse_mode="Markdown")
             except Exception as e:
                 await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
@@ -259,15 +380,16 @@ class TelegramBot:
     async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         chat_id = update.effective_chat.id
         user_id = update.effective_user.id
+
         msg = await self.send_message_whit_try(context=context, chat_id=chat_id,
-                                         text="Регистрация. Ждите")
+                                               text="Регистрация. Ждите")
 
         client = next((client for client in self.clients if client.user_id == user_id), None)
         if client:
             self.clients.remove(client)
 
         msg_arg = update.message.text[7:].split(":")
-        clients_: BotClient = None
+        clients_: BotClient | None = None
 
         if len(msg_arg) > 3:
             clients_ = BotClient(context, update, msg_arg)
@@ -281,36 +403,41 @@ class TelegramBot:
                                                  text="Пароль неверный")
 
         if clients_:
-            if not clients_.torrent:
-                await self.edit_message_whit_try(context=context, chat_id=chat_id, msg=msg,
-                                                 text="Ошибка подключения к торрент клиенту.\nЗагрузка недоступна\n"
-                                                      "Для поиска введите: /search {НАЗВАНИЕ}")
-            else:
-                await self.edit_message_whit_try(context=context, chat_id=chat_id, msg=msg,
-                                             text="Для поиска введите: /search {НАЗВАНИЕ}")
+            await self.retry_operation(
+                context.bot.delete_message,
+                chat_id=update.effective_chat.id,
+                message_id=msg.message_id)
+            await self.set_reply_markup(clients_, update)
             self.clients.append(clients_)
 
     async def cmd_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        self.num_list_torrent = 0
         search_arg = update.message.text[8:]
-        self.logger.log(f"cmd_search {search_arg}")
+        parts = search_arg.split()
+        resource = parts[0] if parts and parts[0] in config.TRACKERS else ""
+        await self.handler_cmd_search(update, context, search_arg, resource)
+
+    async def handler_cmd_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE,
+                                 request: str, tracker_type: str = '') -> None:
+        self.num_list_torrent = 0
+        self.logger.log(f"cmd_search {request}")
         client = self.__get_client_by_chat_id(update.effective_chat.id)
         if not client:
             await self.send_message_whit_try(context=context,
                                              chat_id=update.effective_chat.id,
                                              text="Для начала введите: /start")
         else:
-            if not search_arg:
+            if not request:
                 await self.send_message_whit_try(context=context,
                                                  chat_id=update.effective_chat.id,
                                                  text="Поле {НАЗВАНИЕ} не должно быть пустым")
             else:
-                client.search_torrent(search_arg)
+                client.search_torrent(request, tracker_type)
                 torrent_info = client.get_torrent_info_part_list(self.num_list_torrent)
                 if 6 >= client.get_torrent_info_list_len():
-                    kye = InlineKeyboardMarkup(self.keyboard_list_none)
+                    kye = InlineKeyboardMarkup(self.get_keyboard_list_torrents(False, False, 0,
+                                                                               client.get_torrent_info_list_len()))
                 else:
-                    kye = InlineKeyboardMarkup(self.keyboard_list_next)
+                    kye = InlineKeyboardMarkup(self.get_keyboard_list_torrents(True, False, 0, 6))
 
                 add_text_list_torrents = self.__add_text_list_torrents_standatr
                 if config.JELLYFIN_ENABLE and client.creater_link and client.creater_link.is_connect:
@@ -323,37 +450,46 @@ class TelegramBot:
                                                  disable_web_page_preview=True)
 
     async def cmd_download(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        search_arg = update.message.text[10:]
+        search_arg = update.message.text[10:].split()
         other = ''
-        arg_param = None
-        self.logger.log(f"cmd_download {search_arg}")
-        client = self.__get_client_by_chat_id(update.effective_chat.id)
 
-        if search_arg[:2] == 'jl':
+        if search_arg and 'jl' in search_arg:
             other = 'jl'
-            search_arg = search_arg.split()[1:]
+            search_arg = search_arg[1:]
+
+        num = None
+        if isinstance(search_arg[0], int):
+            num = int(search_arg[0])
+
+        arg_param = None
+        if len(search_arg) > 1:
+            arg_param = ' '.join(search_arg[1:])
+
+        self.logger.log(f"cmd_download {search_arg}")
+        await self.handler_cmd_download(update, context, num, arg_param, other)
+
+    async def handler_cmd_download(self, update: Update, context: ContextTypes.DEFAULT_TYPE,
+                                   num: int, name_path: None | str = None, other_param: str | None = None) -> None:
+        client = self.__get_client_by_chat_id(update.effective_chat.id)
 
         if not client:
             await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                              text="Для начала введите: /start")
         else:
-            if len(search_arg) < 1:
+            if num is None:
                 await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                  text="Поле {НОМЕР} должно содержать цифру")
             else:
                 try:
-                    num_ = int(search_arg[0])
                     if not client.torrent:
                         await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                          text="Ошибка подключения к торрент клиенту")
                     else:
-                        if client.get_torrent_info_list_len() < num_ + 1:
+                        if client.get_torrent_info_list_len() < num + 1:
                             await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
-                                                             text=f"Номер: {num_} отсутствует")
+                                                             text=f"Номер: {num} отсутствует")
                         else:
-                            if len(search_arg) > 1:
-                                arg_param = ' '.join(search_arg[1:])
-                            client.start_download_with_progres_bar(num_, update, context, other, arg_param)
+                            client.start_download_with_progres_bar(num, update, context, other_param, name_path)
                 except Exception as e:
                     self.logger.log(f"Ошибка: {e}")
                     await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
@@ -394,6 +530,53 @@ class TelegramBot:
             disable_web_page_preview=disable_web_page_preview
         )
 
+    async def set_reply_markup(self, client: BotClient, update: Update):
+        reply_markup = self.get_reply_markup(client)
+        if client.torrent:
+            text = "Готово"
+        else:
+            text = "Ошибка подключения к торрент клиенту.\nЗагрузка недоступна"
+        #
+        # if client.old_ready_msg_id:
+        #     try:
+        #         # Пытаемся отредактировать старое сообщение
+        #         await self.retry_operation(
+        #             client.context.bot.edit_message_text,
+        #             chat_id=client.chat_id,
+        #             message_id=client.old_ready_msg_id,
+        #             text=text,
+        #             reply_markup=reply_markup
+        #         )
+        #     except Exception as e:
+        #         # Если редактировать не удалось (например, сообщение устарело), создаём новое
+        #         msg = await self.retry_operation(
+        #             update.message.reply_text,
+        #             reply_markup=reply_markup,
+        #             text=text
+        #         )
+        #         client.old_ready_msg_id = msg.message_id
+        # else:
+        #     # В первый раз просто отправляем сообщение
+        #     msg = await self.retry_operation(
+        #         update.message.reply_text,
+        #         reply_markup=reply_markup,
+        #         text=text
+        #     )
+        #     client.old_ready_msg_id = msg.message_id
+
+        msg = await self.retry_operation(
+            update.message.reply_text,
+            reply_markup=reply_markup,
+            text=text)
+
+        if client.old_ready_msg_id:
+            await self.retry_operation(
+                client.context.bot.delete_message,
+                chat_id=client.chat_id,
+                message_id=client.old_ready_msg_id)
+        client.old_ready_msg_id = msg.message_id
+
+
     async def edit_message_whit_try(self, chat_id, text, context, msg, parse_mode=None, reply_markup=None):
         self.logger.log(text)
         return await self.retry_operation(
@@ -408,6 +591,29 @@ class TelegramBot:
     async def callback_answer_whit_try(self, query):
         return await self.retry_operation(query.answer)
 
+    async def request_name_download(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        client = self.__get_client_by_chat_id(update.effective_chat.id)
+        client.user_states.status = "expecting_name"
+        default_name = client.get_default_name_jellyfin()
+
+        if default_name:
+            text = f"Введите название для symlink\n(по умолчанию: *{default_name}*)"
+            key = InlineKeyboardMarkup([[InlineKeyboardButton("Использовать по умолч.",
+                                                              callback_data="used_default_name")]])
+            msg = await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
+                                             text=text,
+                                             parse_mode="Markdown",
+                                             reply_markup=key)
+        else:
+            text = f"Введите название для symlink"
+            msg = await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
+                                             text=text,
+                                             parse_mode="Markdown")
+
+        # client.user_states.bot_msg[0] = update.effective_chat.id
+        client.user_states.bot_msg_id = msg.message_id
+
+
     async def handle_menu_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await self.callback_answer_whit_try(query)
@@ -419,13 +625,18 @@ class TelegramBot:
                 self.num_list_torrent += 1
 
             if 6 >= client.get_torrent_info_list_len():
-                kye = InlineKeyboardMarkup(self.keyboard_list_none)
+                kye = InlineKeyboardMarkup(self.get_keyboard_list_torrents(False, False, 0,
+                                                                           client.get_torrent_info_list_len()))
             elif self.num_list_torrent == 0:
-                kye = InlineKeyboardMarkup(self.keyboard_list_next)
+                kye = InlineKeyboardMarkup(self.get_keyboard_list_torrents(True, False, 0, 6))
             elif (self.num_list_torrent + 1) * 6 >= client.get_torrent_info_list_len():
-                kye = InlineKeyboardMarkup(self.keyboard_list_prev)
+                kye = InlineKeyboardMarkup(self.get_keyboard_list_torrents(False, True,
+                                                                           self.num_list_torrent * 6,
+                                                                           client.get_torrent_info_list_len()))
             else:
-                kye = InlineKeyboardMarkup(self.keyboard_list_next_prev)
+                kye = InlineKeyboardMarkup(self.get_keyboard_list_torrents(True, True,
+                                                                           self.num_list_torrent * 6,
+                                                                           (self.num_list_torrent + 1) * 6))
 
             torrent_info = client.get_torrent_info_part_list(self.num_list_torrent)
             add_text_list_torrents = self.__add_text_list_torrents_standatr
@@ -437,10 +648,45 @@ class TelegramBot:
                                              parse_mode="Markdown",
                                              disable_web_page_preview=True)
 
-        elif "_" in query.data:
+        elif "cancel" in query.data:
             data = query.data.split("_")
             if data[0] == "cancel":
+                if int(data[1]) == -1:
+                    return
                 client.stop_download_torrent(int(data[1]))
+
+        elif "infolook" in query.data:
+            data = query.data.split("_")
+            await self.handler_cmd_look(update, context, int(data[1]))
+
+        elif "download" in query.data:
+            data = query.data.split("_")
+            await self.handler_cmd_download(update, context, int(data[1]))
+
+        elif "ljsimlink" in query.data:
+            num = int(query.data.split("_")[1])
+            client.user_states.num_torrents = num
+            await self.request_name_download(update, context)
+
+        elif "used_default_name" in query.data:
+            client = self.__get_client_by_chat_id(update.effective_chat.id)
+            default_name = client.get_default_name_jellyfin()
+            if not client.user_states.num_torrents is None:
+                await self.retry_operation(
+                    context.bot.delete_message,
+                    chat_id=client.chat_id,
+                    message_id=client.user_states.bot_msg_id)
+                await self.handler_cmd_download(update, context, client.user_states.num_torrents, default_name, 'jl')
+            else:
+                await self.send_message_whit_try(chat_id=update.effective_chat.id, text="ошибка: used_default_name",
+                                                 context=context)
+            client.user_states.clear()
+        else:
+            print("КНОПКИ НЕ СУЩЕСТВУЕТ")
+
+
+
+
 
 
 class ProgressBar:
@@ -526,6 +772,9 @@ class ProgressBarWithBtn(ProgressBar):
                  total_step: int = 10, torrent_id: int | str = None):
         if not torrent_id:
             name = "Ошибка добавления торрента"
+            self.__torrent_id = "-1"
+            self.btn = self.__generate_buttons()
+            progress_value = lambda: 0.
         else:
             self.__torrent_id = torrent_id
             self.btn = self.__generate_buttons()

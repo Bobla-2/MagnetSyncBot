@@ -3,6 +3,9 @@ from bs4 import BeautifulSoup
 import time
 from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo, ABCTorrenTracker
 import module.crypto_token.config as config
+import bencodepy
+import hashlib
+import urllib.parse
 
 
 def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
@@ -10,9 +13,9 @@ def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            print(f"Попытка {attempt + 1} из {retries}. Ошибка сети: ПОДКЛЮЧЕНИЯ 1337 {e}.")
+            print(f"Попытка {attempt + 1} из {retries}. Ошибка сети: ПОДКЛЮЧЕНИЯ anidub {e}.")
             time.sleep(1)
-    print(f"Не удалось загрузить 1337 после {retries} попыток.")
+    print(f"Не удалось загрузить anidub после {retries} попыток.")
     return None
 
 
@@ -37,7 +40,7 @@ class TorrentInfo(ABCTorrentInfo):
         self.__name = name
         self.__year = year
         self.__url = url
-        self.__parser = _1337ParserPage(self.__url)
+        self.__parser = _AniDubParserPage(self.__url)
         self.__size = size
         self.__seeds = seeds
         self.__leeches = leeches
@@ -50,7 +53,7 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def size(self) -> str:
-        return self.__size
+        return self.__parser.get_size()
 
     @property
     def get_magnet(self) -> str:
@@ -58,16 +61,16 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def get_other_data(self) -> str:
-        data = self.__parser.get_other_data()
-        data_str = []
-        current_length = 0
-        for dt in data:
-            string = f"*{self.escape_special_chars_translate(dt[0])}* {self.escape_special_chars_translate(dt[1])}"
-            data_str.append(string)
-            current_length += len(string)
-            if current_length > 1950:
-                break
-        return "\n".join(data_str)
+        # data = self.__parser.get_other_data()
+        # data_str = []
+        # current_length = 0
+        # for dt in data:
+        #     string = f"*{self.escape_special_chars_translate(dt[0])}* {self.escape_special_chars_translate(dt[1])}"
+        #     data_str.append(string)
+        #     current_length += len(string)
+        #     if current_length > 1950:
+        #         break
+        return "\n".join([])
 
     @property
     def id_torrent(self) -> str:
@@ -79,7 +82,7 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def category(self) -> str:
-        return ""
+        return self.__category
 
     def escape_special_chars_translate(self, text: str) -> str:
         special_chars = '_*[~`#=|{}!\\'
@@ -89,7 +92,7 @@ class TorrentInfo(ABCTorrentInfo):
     @property
     def full_info(self) -> str:
         return (f"{self.escape_special_chars_translate(self.__name)}\n\n"
-                f"*leeches:* {self.__leeches}\n*seeds:* {self.__seeds}\n*дата:* {self.__year}\n{self.get_other_data}\n"
+                f"*seeds:* {self.__parser.get_seeders()}\n*дата:* {self.__year}\n{self.get_other_data}\n"
                 f"[страница]({self.__url})")
 
     @property
@@ -119,69 +122,63 @@ def singleton(cls):
 
 
 @singleton
-class X1337(ABCTorrenTracker):
+class AniDub(ABCTorrenTracker):
     '''
-    Класс для взаимодействия с  1337 и выполнения поиска торрентов.
+    Класс для взаимодействия с  AniDub и выполнения поиска торрентов.
 
     Методы:
     -------
     __init__():
-        Выполняет авторизацию на 1337
+        Выполняет авторизацию на AniDub
 
     get_search_list(search_request: str, page_deepth: int = 2) -> list[TorrentInfo]:
-        Выполняет поиск торрентов на 1337 по заданному запросу. Возвращает список объектов `TorrentInfo`.
+        Выполняет поиск торрентов на AniDub по заданному запросу. Возвращает список объектов `TorrentInfo`.
     '''
 
     def __init__(self, proxy_=None):
-        self.base_url = config.X1337_BASE_URL
-        self.__search_url = self.base_url + '/search/{}/1/'
+        self.base_url = config.ANIDUB_BASE_URL
+        self.__search_url = self.base_url
 
         self.__proxies = {'http': proxy_ or config.proxy,
                           'https': proxy_ or config.proxy}
 
     def __get_search_list(self, query: str, search_url: str) -> list[ABCTorrentInfo]:
-        search_url = search_url.format(query)
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
+        data = {
+            "do": "search",
+            "subaction": "search",
+            "story": query
+        }
 
-        response = requests.get(search_url, headers=headers, proxies=self.__proxies)
+        response = requests.post(search_url, headers=headers, data=data, proxies=self.__proxies)
         if response.status_code != 200:
             print(f"Error fetching the page: {response.status_code}")
             return []
 
         soup = BeautifulSoup(response.text, 'html.parser')
-        table = soup.find('table', class_='table-list')
+        table = soup.find(class_='search_post')
         if not table:
             print("No torrents found.")
             return []
+        results = []
+        for block in soup.select("div.search_post"):
+            a_tag = block.select_one("h2 > a")
+            if a_tag:
+                title = a_tag.text.strip()
+                link = a_tag["href"]
+                results.append((title, link))
 
+        # Печатаем результат
         torrent_list = []
-        for row in table.find('tbody').find_all('tr'):
-            name = row.find('td', class_='coll-1 name').find_all('a')[-1].text.strip()
-            category_class = row.find('td', class_='coll-1 name').find("i", class_=lambda x: x and x.startswith("flaticon-"))
-            icon_name = ''
-            if category_class:
-                icon_name = category_class["class"][0]
-            seeds = row.find('td', class_='coll-2 seeds').text.strip()
-            leeches = row.find('td', class_='coll-3 leeches').text.strip()
-            upload_date = row.find('td', class_='coll-date').text.strip()
-            url = row.find('td', class_='coll-1 name').find_all('a')[-1]['href']
-            size_cell = row.find('td', class_="coll-4 size mob-uploader")
-            if not size_cell:
-                size_cell = row.find('td', class_="coll-4 size mob-user")
-            size = "None"
-            if size_cell:
-                size = size_cell.contents[0].strip()
+        for title, link in results:
+            print(f"{title}\n{link}\n")
 
-            torrent_list.append(TorrentInfo(url=self.base_url + url,
-                                            name=name,
-                                            seeds=seeds,
-                                            leeches=leeches,
-                                            year=upload_date,
-                                            size=size,
-                                            category=icon_name
-                                            ))
+            torrent_list.append(TorrentInfo(category="anime",
+                                        name=title,
+                                        url=link,
+                                        ))
         return torrent_list
 
     def get_tracker_list(self, search_request: str) -> list[ABCTorrentInfo]:
@@ -192,8 +189,7 @@ class X1337(ABCTorrenTracker):
             return [TorrentInfo(name="Ошибка поиска. Попробуйте снова")]
 
 
-
-class _1337ParserPage:
+class _AniDubParserPage:
     """
     Простой парсер страниц
     """
@@ -217,61 +213,73 @@ class _1337ParserPage:
         page_content = response.text
         return BeautifulSoup(page_content, "html.parser")
 
-
     def get_magnet(self):
         self.__load_page()
+        relative_url = ''
         if self.__soup:
-            link = self.__soup.find('a', id='openPopup', href=True)
-            if link and link['href'].startswith('magnet:'):
-                return link['href']
-            return None
+            for a in self.__soup.find_all('a', href=True):
+                if "download.php?id=" in a['href']:
+                    relative_url = a['href']
+                    break
+            if not relative_url:
+                return ''
 
-    def get_other_data(self) -> list:
+            full_url = urllib.parse.urljoin(config.ANIDUB_BASE_URL, relative_url)
+            # Шаг 2: Скачать файл
+            response = requests.get(full_url)
+            response.raise_for_status()
+
+            # Шаг 3: Распарсить .torrent
+            torrent_data = bencodepy.decode(response.content)
+            info = torrent_data[b'info']
+            info_bencoded = bencodepy.encode(info)
+            info_hash = hashlib.sha1(info_bencoded).hexdigest()
+
+            # Шаг 4: Извлечь имя и трекеры
+            name = info.get(b'name', b'torrent').decode('utf-8')
+            trackers = []
+
+            if b'announce' in torrent_data:
+                trackers.append(torrent_data[b'announce'].decode())
+
+            if b'announce-list' in torrent_data:
+                for tier in torrent_data[b'announce-list']:
+                    for url in tier:
+                        url_str = url.decode()
+                        if url_str not in trackers:
+                            trackers.append(url_str)
+
+            # Шаг 5: Собрать magnet-ссылку
+            params = {
+                'xt': f'urn:btih:{info_hash}',
+                'dn': name
+            }
+
+            magnet = f"magnet:?{urllib.parse.urlencode(params)}"
+            for tr in trackers:
+                magnet += f"&tr={urllib.parse.quote(tr)}"
+        else:
+            raise ValueError("не найдена магнет ссылка в анидаб. if download.php?id= in a['href']:")
+
+        return magnet
+
+    def get_seeders(self):
         self.__load_page()
-        if self.__soup:
-            info_box = self.__soup.find('div', class_="box-info torrent-detail-page")
-            if not info_box:
-                return [['', 'пусто 1337']]
+        if not self.__soup:
+            return "error"
+        block = self.__soup.find('div', class_='list down')
+        seeders = block.find('span', class_='li_distribute_m').text.strip()
+        return seeders
 
-            data = []
-            for li in info_box.find_all('li'):
-                strong = li.find('strong')
-                span = li.find('span')
-
-                if strong and span:
-                    key = strong.get_text(strip=True).lower().replace(" ", "_")  # Приводим ключ к виду snake_case
-                    value = span.get_text(strip=True)
-                    data.append([key, value])
-            return data
-
+    def get_size(self):
+        self.__load_page()
+        if not self.__soup:
+            return "error"
+        block = self.__soup.find('div', class_='list down')
+        size = block.find('span', class_='red').text.strip()
+        return size
 
 
 if __name__ == '__main__':
-    import cloudscraper
-    #
-    scraper = cloudscraper.create_scraper()  # Обходит Cloudflare JS-челлендж
-    url = "https://1337x.st/search/Python/1/"
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Referer": "https://1337x.to/",
-    }
-    response = scraper.get(url, headers=headers)
-
-    print("Status code:", response.status_code)
-    print(response.text[:500])
-    # from playwright.sync_api import sync_playwright
-    #
-    # with sync_playwright() as p:
-    #     browser = p.chromium.launch(headless=True)  # headless=False для отладки
-    #     page = browser.new_page()
-    #     page.goto("https://1337x.to/search/Python/1/")
-    #     page.wait_for_selector(".search-page")  # Ждём загрузки результатов
-    #     html = page.content()
-    #     print(html[:500])  # Печатаем начало страницы
-    #     browser.close()
-
-    # p = X1337().get_tracker_list("python")
-    # print(p[0].get_magnet, p[0].size)
+    p = AniDub().get_tracker_list("Перевоплотился в седьмого принца, так что я буду совершенствовать свою магию, как захочу ТВ-2")
+    print(p[0].get_magnet)

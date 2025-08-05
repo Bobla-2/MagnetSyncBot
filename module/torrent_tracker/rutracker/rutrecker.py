@@ -60,7 +60,7 @@ class TorrentInfo(ABCTorrentInfo):
         data_str = []
         current_length = 0
         for dt in data:
-            string = f"*{self.escape_special_chars_translate(dt[0])}* {self.escape_special_chars_translate(dt[1])}"
+            string = f"*{self.escape_special_chars_translate(dt[0])}:* {self.escape_special_chars_translate(dt[1])}"
             data_str.append(string)
             current_length += len(string)
             if current_length > 1950:

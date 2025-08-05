@@ -114,10 +114,13 @@ class QBittorrentManager(TorrentManager):
             time.sleep(0.1)
             torrents = self.__client.torrents_info()
 
-            magnet_url = magnet_url.replace('+', '%20').lower()
+            magnet_url = (magnet_url.replace('+', '%20').
+                          replace(':', '%3a').
+                          replace('/', '%2f').lower())
             torrent_hash = None
             for t in torrents:
-                if t.magnet_uri[:100].lower() == magnet_url[:100]:
+                tor_magnet_utl = t.magnet_uri.replace('+', '%20').replace(':', '%3a').replace('/', '%2f').lower()[:100]
+                if (tor_magnet_utl == magnet_url[:100]):
                     torrent_hash = t.hash
                     break
             return torrent_hash
@@ -141,8 +144,18 @@ class QBittorrentManager(TorrentManager):
         '''
         if not id:
             id = self.__id_last
-        if id:
-            self.__client.torrents_pause(hashes=id)
+        if not id:
+            return
+
+        try:
+            if hasattr(self.__client, 'torrents_stop'):
+                self.__client.torrents_stop(hashes=id)
+            elif hasattr(self.__client, 'torrents_pause'):
+                self.__client.torrents_pause(hashes=id)
+            else:
+                print("Невозможно остановить торрент — нет подходящего метода.")
+        except Exception as e:
+            print(f"Ошибка при остановке торрента: {e}")
 
     def get_path(self, id: str = None) -> str:
         '''
@@ -151,7 +164,8 @@ class QBittorrentManager(TorrentManager):
         '''
         if not id:
             id = self.__id_last
-        dir_ = self.__client.torrents_info(torrent_hash=id)[0].content_path
+        dir_ = self.__client.torrents_info(torrent_hashes=id)
+        dir_ = dir_[0].content_path
         print(f'{id} dir download  {dir_}')
         return dir_
 
