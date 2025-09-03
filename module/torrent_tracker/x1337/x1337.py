@@ -82,7 +82,7 @@ class TorrentInfo(ABCTorrentInfo):
         return ""
 
     def escape_special_chars_translate(self, text: str) -> str:
-        special_chars = '_*[~`#=|{}!\\'
+        special_chars = '_*[~`#=|{}\\'
         translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
         return text.translate(translation_table)
 
@@ -224,7 +224,7 @@ class _1337ParserPage:
             link = self.__soup.find('a', id='openPopup', href=True)
             if link and link['href'].startswith('magnet:'):
                 return link['href']
-            return None
+        return None
 
     def get_other_data(self) -> list:
         self.__load_page()
@@ -243,6 +243,7 @@ class _1337ParserPage:
                     value = span.get_text(strip=True)
                     data.append([key, value])
             return data
+        return [("", "Не удалось загрузить контент с 1337")]
 
 
 

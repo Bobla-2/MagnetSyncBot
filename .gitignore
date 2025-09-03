@@ -7,3 +7,4 @@ module/crypto_token/config.py
 *.pkl
 /logs
 /logs_backup
+/release

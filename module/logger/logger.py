@@ -1,6 +1,7 @@
 import os
 import shutil
 from datetime import datetime
+from module.crypto_token import config
 
 def singleton(cls):
     instances = {}
@@ -44,14 +45,26 @@ class SimpleLogger:
             file.write("")
 
     def log(self, message: str):
-        # Записываем сообщение в лог
         with open(self.log_file, "a") as file:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             try:
                 file.write(f"{timestamp} - {message}\n")
             except:
-                print("ошибка логирования: Logger")
+                print("ошибка логирования: не удалось записать лог в файл")
             print(message)
+
+    def get_log_text(self) -> str:
+        n = 4090
+        with open(self.log_file, "rb") as f:  # открываем в бинарном режиме
+            f.seek(0, 2)  # ставим указатель в конец файла
+            size = f.tell()  # размер файла
+            f.seek(max(size - n, 0), 0)  # сдвигаем на size-n или на начало, если файл меньше
+            data = f.read()
+
+        text = data.decode(encoding=config.log_file_encoding, errors="ignore")
+        return text
+
+
 
     def end_log(self):
         # Записываем маркер завершения

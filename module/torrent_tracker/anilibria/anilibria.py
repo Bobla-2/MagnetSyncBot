@@ -43,7 +43,7 @@ class TorrentInfo(ABCTorrentInfo):
         self.__year = year
         self.__url = url
         self.__size = int(size) / 1_048_576
-        self.__size = f'{self.__size} MB' if self.__size < 800. else f'{round(self.__size / 1024, 2)} GB'
+        self.__size = f'{round(self.__size, 2)} MB' if self.__size < 800. else f'{round(self.__size / 1024, 2)} GB'
         self.__seeds = seeds
         self.__leeches = leeches
         self.__id_torrent = None
@@ -86,7 +86,7 @@ class TorrentInfo(ABCTorrentInfo):
         return ""
 
     def escape_special_chars_translate(self, text: str) -> str:
-        special_chars = '_*[~`#=|{}!\\'
+        special_chars = '_*[~`#=|{}\\'
         translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
         return text.translate(translation_table)
 

@@ -2,8 +2,8 @@ import shutil
 import os
 
 # === Настройки ===
-SOURCE_DIR = r"C:\Users\savva\Documents\github\MagnetSyncBot"  # Папка, которую копируем
-DEST_DIR = r"C:\Users\savva\Desktop\MagnetSyncBot"    # Куда копируем
+SOURCE_DIR = r".\\"  # Папка, которую копируем
+DEST_DIR = r".\\release\\MagnetSyncBot"    # Куда копируем
 
 # Укажи файлы и папки, которые нужно удалить
 FILES_TO_DELETE = ["config.py"]  # Файлы, которые удаляем

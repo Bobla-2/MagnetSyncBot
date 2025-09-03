@@ -19,6 +19,7 @@ def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
     return None
 
 
+
 class TorrentInfo(ABCTorrentInfo):
     """
     Класс объекта торрента содержащего все данные о торренте
@@ -30,26 +31,17 @@ class TorrentInfo(ABCTorrentInfo):
 
     def __init__(self, url: str = None,
                  category: str = '',
-                 name: str = None,
-                 year: str = None,
-                 magnet: str = None,
-                 size: str = None,
-                 seeds: str = None,
-                 leeches: str = None):
+                 name: str = None):
         self.__category = category
         self.__name = name
-        self.__year = year
         self.__url = url
         self.__parser = _AniDubParserPage(self.__url)
-        self.__size = size
-        self.__seeds = seeds
-        self.__leeches = leeches
         self.__id_torrent = None
         self.__short_categories = ''
 
     @property
     def name(self) -> str:
-        return f"{self.escape_special_chars_translate(self.__name[:101])}"
+        return f"{TorrentInfo.escape_special_chars_translate(self.__name[:101])}"
 
     @property
     def size(self) -> str:
@@ -61,16 +53,16 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def get_other_data(self) -> str:
-        # data = self.__parser.get_other_data()
-        # data_str = []
-        # current_length = 0
-        # for dt in data:
-        #     string = f"*{self.escape_special_chars_translate(dt[0])}* {self.escape_special_chars_translate(dt[1])}"
-        #     data_str.append(string)
-        #     current_length += len(string)
-        #     if current_length > 1950:
-        #         break
-        return "\n".join([])
+        data = self.__parser.get_other_data()
+        data_str = []
+        current_length = 0
+        for dt in data:
+            string = f"*{TorrentInfo.escape_special_chars_translate(dt[0])}:* {TorrentInfo.escape_special_chars_translate(dt[1])}"
+            data_str.append(string)
+            current_length += len(string)
+            if current_length > 1950:
+                break
+        return "\n".join(data_str)
 
     @property
     def id_torrent(self) -> str:
@@ -84,15 +76,10 @@ class TorrentInfo(ABCTorrentInfo):
     def category(self) -> str:
         return self.__category
 
-    def escape_special_chars_translate(self, text: str) -> str:
-        special_chars = '_*[~`#=|{}!\\'
-        translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
-        return text.translate(translation_table)
-
     @property
     def full_info(self) -> str:
-        return (f"{self.escape_special_chars_translate(self.__name)}\n\n"
-                f"*seeds:* {self.__parser.get_seeders()}\n*дата:* {self.__year}\n{self.get_other_data}\n"
+        return (f"{TorrentInfo.escape_special_chars_translate(self.__name)}\n\n"
+                f"*seeds:* {self.__parser.get_seeders()}\n{self.get_other_data}\n"
                 f"[страница]({self.__url})")
 
     @property
@@ -110,6 +97,12 @@ class TorrentInfo(ABCTorrentInfo):
                 self.__short_categories = "other"
         return self.__short_categories
 
+    @staticmethod
+    def escape_special_chars_translate(text: str) -> str:
+        special_chars = '_*[~`#=|{}\\'
+        translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
+        return text.translate(translation_table)
+
 
 def singleton(cls):
     instances = {}
@@ -123,7 +116,7 @@ def singleton(cls):
 
 @singleton
 class AniDub(ABCTorrenTracker):
-    '''
+    """
     Класс для взаимодействия с  AniDub и выполнения поиска торрентов.
 
     Методы:
@@ -133,7 +126,7 @@ class AniDub(ABCTorrenTracker):
 
     get_search_list(search_request: str, page_deepth: int = 2) -> list[TorrentInfo]:
         Выполняет поиск торрентов на AniDub по заданному запросу. Возвращает список объектов `TorrentInfo`.
-    '''
+    """
 
     def __init__(self, proxy_=None):
         self.base_url = config.ANIDUB_BASE_URL
@@ -161,7 +154,9 @@ class AniDub(ABCTorrenTracker):
         table = soup.find(class_='search_post')
         if not table:
             print("No torrents found.")
-            return []
+            return [TorrentInfo(category="anime",
+                                name="Найдено 0 аниме",
+                                )]
         results = []
         for block in soup.select("div.search_post"):
             a_tag = block.select_one("h2 > a")
@@ -207,7 +202,8 @@ class _AniDubParserPage:
                        'https': config.proxy}
             self.__soup = _retries_retry_operation(self.__loader, url=self.url, proxies=proxies)
 
-    def __loader(self, url: str, proxies):
+    @staticmethod
+    def __loader(url: str, proxies):
         response = requests.get(url, proxies=proxies)
         response.raise_for_status()
         page_content = response.text
@@ -260,13 +256,12 @@ class _AniDubParserPage:
                 magnet += f"&tr={urllib.parse.quote(tr)}"
         else:
             raise ValueError("не найдена магнет ссылка в анидаб. if download.php?id= in a['href']:")
-
         return magnet
 
     def get_seeders(self):
         self.__load_page()
         if not self.__soup:
-            return "error"
+            return "Не удалось загрузить контент с AniDub"
         block = self.__soup.find('div', class_='list down')
         seeders = block.find('span', class_='li_distribute_m').text.strip()
         return seeders
@@ -274,10 +269,46 @@ class _AniDubParserPage:
     def get_size(self):
         self.__load_page()
         if not self.__soup:
-            return "error"
+            return "Не удалось загрузить контент с AniDub"
         block = self.__soup.find('div', class_='list down')
         size = block.find('span', class_='red').text.strip()
         return size
+
+    def get_year(self) -> str:
+        self.__load_page()
+        if not self.__soup:
+            return "Не удалось загрузить контент с AniDub"
+        block = self.__soup.find('div', class_='xfinfodata')
+        if block:
+            year_label = block.find('b', string=lambda t: t and "Год" in t)
+            if year_label:
+                year_span = year_label.find_next_sibling("span")
+                if year_span:
+                    year = year_span.get_text(strip=True)
+                    return year or "Год не найден"
+        return "Год не найден"
+
+    def get_other_data(self) -> list[list[str]]:
+        self.__load_page()
+        if not self.__soup:
+            return [["Ошибка", "Не удалось загрузить контент с AniDub"]]
+
+        block = self.__soup.find('div', class_='xfinfodata')
+        if not block:
+            return [["Ошибка", "Блок с информацией не найден"]]
+
+        result = []
+        for b in block.find_all("b"):
+            title = b.get_text(strip=True).rstrip(":")  # например "Год", "Жанр"
+            span = b.find_next_sibling("span")
+            if not span:
+                continue
+
+            # собираем весь текст из span (учитываем <a>, запятые и т.д.)
+            value = ", ".join(a.get_text(strip=True) for a in span.find_all("a")) or span.get_text(strip=True)
+            result.append([title, value])
+
+        return result
 
 
 if __name__ == '__main__':

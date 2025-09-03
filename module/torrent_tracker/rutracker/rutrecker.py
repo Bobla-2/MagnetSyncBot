@@ -214,7 +214,7 @@ class RutrackerParserPage:
             if size_element:
                 size_text = size_element.get_text(strip=True)
                 return size_text
-        return "Ошибка размера"
+        return "Не удалось загрузить контент с Rutracker"
 
     def get_other_data(self) -> list:
         self.__load_page()
@@ -222,7 +222,7 @@ class RutrackerParserPage:
             post_body = self.__soup.find("div", class_="post_body")
 
             if not post_body:
-                return [['', "Ошибка: Данные не найдены"]]
+                return [['', "Ошибка: Не удалось загрузить контент с  Rutracker"]]
             data = []
             # print(post_body.find_all("span", class_="post-b"))
             for element in post_body.find_all("span", class_="post-b"):
@@ -234,6 +234,7 @@ class RutrackerParserPage:
                 value = sibling.strip() if sibling else ""  # Значение
                 data.append([key, value])
             return data
+        return [['', "Ошибка: Не удалось загрузить контент с  Rutracker"]]
 
 
 if __name__ == '__main__':
