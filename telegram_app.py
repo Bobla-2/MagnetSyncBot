@@ -30,7 +30,6 @@ class ClientStatus:
         self.num_torrents: int | None = None
 
 
-
 class BotClient:
     def __init__(self, context, update: Update, torrent_settings: list = None):
         self.context = context
@@ -398,7 +397,6 @@ class TelegramBot:
             else:
                 await self.edit_message_whit_try(context=context, chat_id=chat_id, msg=msg,
                                                  text="Пароль неверный")
-
         if clients_:
             await self.retry_operation(
                 context.bot.delete_message,
@@ -453,7 +451,6 @@ class TelegramBot:
             else:
                 client.search_torrent(request, tracker_type)
                 torrent_info = client.get_torrent_info_part_list(self.num_list_torrent)
-
 
                 if  not "Не удалось загрузить контент" in torrent_info and client.get_torrent_info_list_len() != 1:
                     if 6 >= client.get_torrent_info_list_len():
@@ -615,7 +612,6 @@ class TelegramBot:
                                              parse_mode="Markdown")
         client.user_states.bot_msg_id = msg.message_id
 
-
     async def handle_menu_selection(self, update: Update, context):
         query = update.callback_query
         await self.callback_answer_whit_try(query)
@@ -688,10 +684,6 @@ class TelegramBot:
             client.user_states.clear()
         else:
             print("КНОПКИ НЕ СУЩЕСТВУЕТ")
-
-
-
-
 
 
 class ProgressBar:
@@ -795,4 +787,3 @@ class ProgressBarWithBtn(ProgressBar):
 
     def stop_progress(self):
         self.state = 0
-
