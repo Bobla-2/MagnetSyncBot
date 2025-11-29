@@ -20,10 +20,10 @@ if __name__ == '__main__':
     parse_arguments()
 
     tg_bot = TelegramBot()
-    tg_bot.setup(config.get_token())
     SimpleLogger().log("BOT STARTED")
     while True:
         try:
+            tg_bot.setup(config.get_token())
             tg_bot.run()
         except Exception as e:
             SimpleLogger().log(f"tg_bot.run() ERROR {e}")

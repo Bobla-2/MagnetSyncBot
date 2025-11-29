@@ -23,7 +23,6 @@ def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
 class TorrentInfo(ABCTorrentInfo):
     """
     Класс объекта торрента содержащего все данные о торренте
-
     имеет несколько @property, берущих данные со страници
     """
     __slots__ = ('__category', '__name', '__year', '__url', '__parser', '__id_torrent', '__size', '__seeds', '__leeches',

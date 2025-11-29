@@ -1,4 +1,4 @@
-from .__torrent_manager import TorrentManager
+from .__torrent_manager import TorrentManager, ActiveTorrentsInfo
 
 __name_mapping = {
     "transmission": "module.torrent_manager.__torrent_manager.TransmissionManager",

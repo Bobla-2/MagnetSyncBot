@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import time
 from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo, ABCTorrenTracker
 import module.crypto_token.config as config
-
+from module.logger.logger import SimpleLogger
 
 def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
     for attempt in range(retries):
@@ -140,6 +140,7 @@ class X1337(ABCTorrenTracker):
                           'https': proxy_ or config.proxy}
 
     def __get_search_list(self, query: str, search_url: str) -> list[ABCTorrentInfo]:
+        self.logger = SimpleLogger()
         search_url = search_url.format(query)
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -147,13 +148,13 @@ class X1337(ABCTorrenTracker):
 
         response = requests.get(search_url, headers=headers, proxies=self.__proxies)
         if response.status_code != 200:
-            print(f"Error fetching the page: {response.status_code}")
+            self.logger.log(f"Error fetching the page: {response.status_code}")
             return []
 
         soup = BeautifulSoup(response.text, 'html.parser')
         table = soup.find('table', class_='table-list')
         if not table:
-            print("No torrents found.")
+            self.logger.log("No torrents found.")
             return []
 
         torrent_list = []
@@ -190,7 +191,6 @@ class X1337(ABCTorrenTracker):
             return list_
         else:
             return [TorrentInfo(name="Ошибка поиска. Попробуйте снова")]
-
 
 
 class _1337ParserPage:
@@ -249,9 +249,9 @@ class _1337ParserPage:
 
 if __name__ == '__main__':
     import cloudscraper
-    #
+
     scraper = cloudscraper.create_scraper()  # Обходит Cloudflare JS-челлендж
-    url = "https://1337x.st/search/Python/1/"
+    url = "https://1337x.to/search/Python/1/"
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
@@ -263,6 +263,7 @@ if __name__ == '__main__':
 
     print("Status code:", response.status_code)
     print(response.text[:500])
+
     # from playwright.sync_api import sync_playwright
     #
     # with sync_playwright() as p:

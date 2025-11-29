@@ -5,6 +5,9 @@ import time
 from module.crypto_token.config import get_pass_rutreker, get_login_rutreker, proxy
 import module.crypto_token.config as config
 from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo, ABCTorrenTracker
+import bencodepy
+import hashlib
+import urllib.parse
 
 def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
     for attempt in range(retries):
@@ -52,6 +55,7 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def get_magnet(self) -> str:
+        # magnet = self.__parser.get_magnet_link_on_file()
         return self.__parser.get_magnet_link()
 
     @property
@@ -208,6 +212,7 @@ class RutrackerParserPage:
                 return magnet_link_tag['href']
         return ""
 
+
     def get_size(self) -> str:
         self.__load_page()
         if self.__soup:
@@ -239,7 +244,7 @@ class RutrackerParserPage:
 
 
 if __name__ == '__main__':
-    p = Rutracker().get_tracker_list("PyCharm Professional")
+    p = Rutracker().get_tracker_list("PyCharm")
     print(p[0].get_magnet, p[0].size)
 
 

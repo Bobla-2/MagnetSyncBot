@@ -54,7 +54,7 @@ class SimpleLogger:
             print(message)
 
     def get_log_text(self) -> str:
-        n = 4090
+        n = 8090
         with open(self.log_file, "rb") as f:  # открываем в бинарном режиме
             f.seek(0, 2)  # ставим указатель в конец файла
             size = f.tell()  # размер файла

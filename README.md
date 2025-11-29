@@ -53,7 +53,11 @@ sudo nano ./MagnetSyncBot/module/crypto_token/config.py
 ```
 docker build -t magnetsyncbot ./MagnetSyncBot/
 ```
-**5-1) Создание контейнера через docker run**
+**5-1) Создание контейнера через docker-compose**
+```
+cd ./MagnetSyncBot && docker compose up -d
+```
+**5-2) Создание контейнера через docker run**
 ```
 docker run -d -p 8080:8080 -p 9091:9091 --name magnetsyncbot magnetsyncbot
 ```
@@ -61,10 +65,7 @@ docker run -d -p 8080:8080 -p 9091:9091 --name magnetsyncbot magnetsyncbot
 8080 - qBittorrent;
 9091 - transmission;
 
-**5-2) Создание контейнера через docker-compose**
-```
-cd ./MagnetSyncBot && docker compose up -d
-```
+
 
 
 ## Создание_config_файла 

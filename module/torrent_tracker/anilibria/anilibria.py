@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import time
 from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo, ABCTorrenTracker
 import module.crypto_token.config as config
-
+from module.logger.logger import SimpleLogger
 
 def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
     for attempt in range(retries):
@@ -146,7 +146,7 @@ class Anilibria(ABCTorrenTracker):
 
     def __get_search_list(self, query: str, search_url: str, torrent_url: str) -> list[ABCTorrentInfo]:
         search_url = search_url.format(query)
-
+        self.logger = SimpleLogger()
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json"
@@ -154,7 +154,7 @@ class Anilibria(ABCTorrenTracker):
 
         response = requests.get(search_url, headers=headers, proxies=self.__proxies)
         if response.status_code != 200:
-            print(f"Error fetching the page: {response.status_code}")
+            self.logger.log(f"Error fetching the page: {response.status_code}")
             return []
         else:
             data = response.json()
@@ -169,7 +169,9 @@ class Anilibria(ABCTorrenTracker):
                     torrent_info = response.json()
                 else:
                     torrent_info = {"magnet": None}
-
+                if len(torrent_info) == 0:
+                    torrent_list.append(TorrentInfo(name="Найдено 0 аниме"))
+                    return torrent_list
                 for tr_inf in torrent_info:
 
                     all_data = [["Вид", tr_inf["type"]["value"]],

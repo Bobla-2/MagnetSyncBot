@@ -39,7 +39,6 @@ class KinopoiskDatabaseSearch(ABCDatabaseSearch):
         Find the titles ID by search title.
         :return: best_score: int, best_match: int -> id
         """
-
         pass
 
     def get_titles_by_id(self, aid) -> List[Tuple[str, str, str]]:
@@ -76,6 +75,7 @@ class KinopoiskDatabaseSearch(ABCDatabaseSearch):
                 kino_type_ = movie.get('type')
                 kino_id = movie.get('id')
                 ex_id = movie.get('externalId')
+                kino_alt_name = movie.get('alternativeName')
                 imdb_str = ''
                 if ex_id:
                     imdb_id = ex_id.get('imdb')
@@ -87,7 +87,7 @@ class KinopoiskDatabaseSearch(ABCDatabaseSearch):
                 elif kino_type_ in ['cartoon', 'movie']:
                     url_ = f'https://www.kinopoisk.ru/film/{kino_id}/'
 
-                return ([kino_name], f'[Кинопоиск]({url_}){imdb_str}')
+                return ([kino_alt_name, kino_name], f'[Кинопоиск]({url_}){imdb_str}')
 
         else:
             print(f"Ошибка {response.status_code}: {response.text}")
@@ -96,4 +96,4 @@ class KinopoiskDatabaseSearch(ABCDatabaseSearch):
 
 
 if __name__ == '__main__':
-    p = Kinopoisk().get_names_and_url_title("Холоп. Великолепный век (2024)")
+    p = KinopoiskDatabaseSearch().get_names_and_url_title("веном 2021")

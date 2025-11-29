@@ -42,7 +42,9 @@ class CreaterSymlinkManager:
         target_path = f'{path.replace(config.TORRENT_FOLDER[:-1], config.JELLYFIN_PATH[:-1])}/{custam_name}'
         split_orig_name = orig_name.rsplit(".", 1)
         if len(split_orig_name) == 2:
-            target_path = f'{target_path}.{split_orig_name[1]}'
+            ext = split_orig_name[1]
+            if ext and len(ext) <= 5 and ext[0].isalpha() and ext.isalnum():
+                target_path = f'{target_path}.{ext}'
         original_path = original_path.replace('//', '/')
         target_path = target_path.replace('//', '/')
 
