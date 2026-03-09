@@ -125,11 +125,11 @@ class BotClient:
         if self.torrent_client:
             for me in config.MEDIA_EXTENSIONS:
                 if me[3] == self.__selected_torrent_info.short_category:
-                    subdir = me[1]
+                    dir = me[1]
                     if magnet := self.__selected_torrent_info.get_magnet:
                         self.__selected_torrent_info.id_torrent = self.torrent_client.start_download(
                             magnet,
-                            subdir)
+                            dir)
 
     def stop_download_torrent(self, id_torrent: int) -> None:
         self.torrent_client.stop_download(id_torrent)
@@ -159,7 +159,7 @@ class BotClient:
             if not name:
                 return
             self.creater_link.create_symlink(lambda: self.torrent_client.get_path(torrent_.id_torrent), name,
-                                               progress_value=lambda: self.torrent_client.get_progress(torrent_.id_torrent), id=torrent_.id_torrent)
+                                               progress_value=lambda: self.torrent_client.get_progress(torrent_.id_torrent), id=torrent_.id_torrent, category=torrent_.short_category)
 
     def start_download_with_progres_bar(self, num, update, context, other, arg_param=None):
         print(num, other, arg_param)

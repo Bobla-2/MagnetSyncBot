@@ -3,6 +3,10 @@ from module.crypto_token import config
 import paramiko
 import re
 import asyncio
+
+from module.logger.logger import SimpleLogger
+
+
 def singleton(cls):
     instances = {}
 
@@ -29,24 +33,30 @@ class CreaterSymlinkManager:
             return True
         return False
 
-    def create_symlink(self, original_path, custam_name: str, progress_value, id: int | str):
-        self.task[str(id)] = asyncio.create_task(self.__start_create_symlink(original_path, custam_name, progress_value))
+    def create_symlink(self, original_path, custam_name: str, progress_value, id: int | str, category: str) -> None:
+        self.task[str(id)] = asyncio.create_task(self.__start_create_symlink(original_path, custam_name, progress_value, category))
 
-    async def __start_create_symlink(self, original_path, custam_name: str, progress_value):
+    async def __start_create_symlink(self, original_path, custam_name: str, progress_value, category: str) -> None:
         while progress_value() < 1.:
             await asyncio.sleep(5)
         await asyncio.sleep(5)
-        print("Генерация симлмнка")
+        SimpleLogger().log("Генерация симлмнка")
         original_path = original_path()
         path, orig_name = original_path.rsplit("/", 1)
-        target_path = f'{path.replace(config.TORRENT_FOLDER[:-1], config.JELLYFIN_PATH[:-1])}/{custam_name}'
+        for me in config.MEDIA_EXTENSIONS:
+            if me[3] == category:
+                dir = me[4]
+                break
+        target_path = f'{config.JELLYFIN_FOLDER_OTHER}/{custam_name}'
         split_orig_name = orig_name.rsplit(".", 1)
-        if len(split_orig_name) == 2:
+        if len(split_orig_name) >= 2:
             ext = split_orig_name[1]
+            if category == "cinema":
+                target_path = f'{target_path}/{custam_name}'
             if ext and len(ext) <= 5 and ext[0].isalpha() and ext.isalnum():
                 target_path = f'{target_path}.{ext}'
-        original_path = original_path.replace('//', '/')
-        target_path = target_path.replace('//', '/')
+        original_path = original_path.replace('//', '/').replace('\\', '/')
+        target_path = target_path.replace('//', '/').replace('\\', '/')
 
         target_path = re.sub(r'[:*?"<>|]', '', target_path)
         relative_path = os.path.relpath(original_path, start=os.path.dirname(target_path))
@@ -66,14 +76,15 @@ class CreaterSymlinks:
     def __init__(self):
         self.client = True
     def create_symlink(self, original_path: str, target_file: str):
-        if os.path.exists(target_file):
-            print(f"Симлинк уже существует: {target_file}")
+        if os.path.lexists(target_file):
+            SimpleLogger().log(f"Симлинк уже существует: {target_file}")
             return
         try:
+            os.makedirs(os.path.dirname(target_file), exist_ok=True)
             os.symlink(original_path, target_file)
-            print(f"Симлинк создан: {original_path} -> {target_file}")
+            SimpleLogger().log(f"Симлинк создан: {target_file} -> {original_path}")
         except Exception as e:
-            print(f"Ошибка создания симлинка: {e}")
+            SimpleLogger().log(f"Ошибка создания симлинка: {e}")
 
 
 
@@ -90,7 +101,7 @@ class SSHSymlinkCreator:
             self.client.connect(
                 config.SYMLINK_HOST,
                 port=config.SYMLINK_PORT,
-                username=config.SYMLINK_LIGIN,
+                username=config.SYMLINK_LOGIN,
                 password=config.SYMLINK_PASS,
             )
         except:
@@ -99,7 +110,7 @@ class SSHSymlinkCreator:
     def create_symlink(self, relative_path: str, targer_path):
         """Создает символическую ссылку на удаленном сервере."""
         if not self.client:
-            print("SSH-соединение не установлено")
+            SimpleLogger().log("SSH-соединение не установлено")
             return
 
         command = f'ln -s "{relative_path}" "{targer_path}"'.replace('\\\\', '\\').replace('\\', '/')
@@ -108,15 +119,15 @@ class SSHSymlinkCreator:
         stdin, stdout, stderr = self.client.exec_command(command_mkdir)
         error = stderr.read().decode()
         if error:
-            print(f"Ошибка при создании mkdir: {error}")
+            SimpleLogger().log(f"Ошибка при создании mkdir: {error}")
 
         stdin, stdout, stderr = self.client.exec_command(command, get_pty=True)
         stdout.channel.set_combine_stderr(True)
 
         # Чтение вывода и ошибок в одном потоке
         output = stdout.read().decode('utf-8')
-        print(command)
-        print(output)
+        SimpleLogger().log(command)
+        SimpleLogger().log(output)
         # return stdout.read().decode().strip()
 
     def close(self):
@@ -127,4 +138,25 @@ class SSHSymlinkCreator:
 
 # Пример использования
 if __name__ == "__main__":
-    print(f'{config.JELLYFIN_PATH}{"/download/folder/".replace(config.TORRENT_FOLDER, "")}{"custam_name"}')
+    original_path = "/srv/dev-disk-by-uuid-a8856494-378f-4839-8243-5aa883ea0730/C/download/1_anime/Oshi no .K.o.mkv"
+    custam_name = "name2"
+    category = "cinema"
+    path, orig_name = original_path.rsplit("/", 1)
+    for me in config.MEDIA_EXTENSIONS:
+        if me[3] == category:
+            dir = me[4]
+            break
+    target_path = f'{config.JELLYFIN_FOLDER_OTHER}/{custam_name}'
+    split_orig_name = orig_name.rsplit(".", 1)
+    if len(split_orig_name) >= 2:
+        ext = split_orig_name[1]
+        if category == "cinema":
+            target_path = f'{target_path}/{custam_name}'
+        if ext and len(ext) <= 5 and ext[0].isalpha() and ext.isalnum():
+            target_path = f'{target_path}.{ext}'
+    original_path = original_path.replace('//', '/').replace('\\', '/')
+    target_path = target_path.replace('//', '/').replace('\\', '/')
+
+    target_path = re.sub(r'[:*?"<>|]', '', target_path)
+    relative_path = os.path.relpath(original_path, start=os.path.dirname(target_path))
+    relative_path = re.sub(r'[:*?"<>|]', '', relative_path)

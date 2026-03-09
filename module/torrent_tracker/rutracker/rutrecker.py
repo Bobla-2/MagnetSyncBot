@@ -9,7 +9,7 @@ import bencodepy
 import hashlib
 import urllib.parse
 
-def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
+def _retries_retry_operation(func, *args, retries: int = 2, **kwargs):
     for attempt in range(retries):
         try:
             return func(*args, **kwargs)
@@ -82,13 +82,13 @@ class TorrentInfo(ABCTorrentInfo):
     @property
     def short_category(self) -> str | None:
         if not self.__short_categories:
-            for categories, _, condition, short_categories in config.MEDIA_EXTENSIONS:
-                if condition == "==":
-                    if self.__category in categories:
-                        self.__short_categories = short_categories
-                elif condition == "in":
-                    if any(cat in self.__category for cat in categories):
-                        self.__short_categories = short_categories
+            for me in config.MEDIA_EXTENSIONS:
+                if me[2] == "==":
+                    if self.__category in me[0]:
+                        self.__short_categories = me[3]
+                elif me[2] == "in":
+                    if any(cat in self.__category for cat in me[0]):
+                        self.__short_categories = me[3]
 
             if not self.__short_categories:
                 self.__short_categories = "other"
@@ -127,6 +127,7 @@ class Rutracker(ABCTorrenTracker):
                                                     username=get_login_rutreker(),
                                                     password=get_pass_rutreker(),
                                                     proxy=config.proxy)
+
 
     def get_tracker_list(self, search_request: str) -> list[ABCTorrentInfo]:
         if self.__rutracker:

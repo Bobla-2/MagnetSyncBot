@@ -75,12 +75,12 @@ class TransmissionManager(TorrentManager):
                                            protocol=protocol)
         self.__id_last: int = 0
         time.sleep(1)
-        self.__default_dir = config.TORRENT_FOLDER
+        self.__default_dir = config.TORRENT_FOLDER_OTHER
 
-    def start_download(self, magnet_url: str, subfolder: str = "") -> int:
+    def start_download(self, magnet_url: str, folder: str = "") -> int:
         if magnet_url != "":
-            if subfolder:
-                download_dir = f"{self.__default_dir}/{subfolder}"[:-1].replace('//', '/')
+            if folder:
+                download_dir = folder
             else:
                 download_dir = self.__default_dir
 
@@ -141,13 +141,14 @@ class QBittorrentManager(TorrentManager):
                                           REQUESTS_ARGS={'timeout': (1, 5)})
         self.__client.auth_log_in()
         self.__id_last: str = ""
-        self.__default_dir = config.TORRENT_FOLDER
+        self.__default_dir = config.TORRENT_FOLDER_OTHER
 
 
-    def start_download(self, magnet_url: str, subfolder: str = '') -> str:
+    def start_download(self, magnet_url: str, folder: str = '') -> str:
         if magnet_url != "":
-            if subfolder:
-                download_dir = f"{self.__default_dir}/{subfolder}".replace('//', '/')
+
+            if folder:
+                download_dir = folder
             else:
                 download_dir = self.__default_dir
             self.__client.torrents_add(urls=magnet_url, savepath=download_dir)

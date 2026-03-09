@@ -99,13 +99,13 @@ class TorrentInfo(ABCTorrentInfo):
     @property
     def short_category(self) -> str | None:
         if not self.__short_categories:
-            for categories, _, condition, short_categories in config.MEDIA_EXTENSIONS:
-                if condition == "==":
-                    if self.__category in categories:
-                        self.__short_categories = short_categories
-                elif condition == "in":
-                    if any(cat in self.__category for cat in categories):
-                        self.__short_categories = short_categories
+            for me in config.MEDIA_EXTENSIONS:
+                if me[2] == "==":
+                    if self.__category in me[0]:
+                        self.__short_categories = me[3]
+                elif me[2] == "in":
+                    if any(cat in self.__category for cat in me[0]):
+                        self.__short_categories = me[3]
 
             if not self.__short_categories:
                 self.__short_categories = "other"

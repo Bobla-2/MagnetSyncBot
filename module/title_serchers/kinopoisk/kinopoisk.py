@@ -9,7 +9,7 @@ def _retries_retry_operation(func, *args, retries: int = 2, **kwargs):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            print(f"Попытка {attempt + 1} из {retries}. Ошибка сети: ПОДКЛЮЧЕНИЯ Rutracker {e}.")
+            print(f"Попытка {attempt + 1} из {retries}. Ошибка сети: ПОДКЛЮЧЕНИЯ kinopoisk {e}.")
             time.sleep(0.3)
     print(f"Не удалось загрузить kinopoisk после {retries} попыток.")
     return None
