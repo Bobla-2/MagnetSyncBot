@@ -13,20 +13,20 @@ def parse_arguments():
         config.proxy = args.proxy
     if args.jellyfin:
         config.jellyfin = args.jellyfin
-    SimpleLogger().log(f"Принят параметр: {args}")
+    SimpleLogger().log(f"[main] : Принят параметр: {args}")
 
 
 if __name__ == '__main__':
     parse_arguments()
 
     tg_bot = TelegramBot()
-    SimpleLogger().log("BOT STARTED")
+    SimpleLogger().log("[main] : BOT STARTED")
     while True:
         try:
             tg_bot.setup(config.get_token())
             tg_bot.run()
         except Exception as e:
-            SimpleLogger().log(f"tg_bot.run() ERROR {e}")
+            SimpleLogger().log(f"[main] : tg_bot.run() ERROR {e}")
             time.sleep(1)
 
 

@@ -4,6 +4,7 @@ import paramiko
 import re
 import asyncio
 
+from module.crypto_token.config_templ import jellyfin
 from module.logger.logger import SimpleLogger
 
 
@@ -40,14 +41,15 @@ class CreaterSymlinkManager:
         while progress_value() < 1.:
             await asyncio.sleep(5)
         await asyncio.sleep(5)
-        SimpleLogger().log("Генерация симлмнка")
+        SimpleLogger().log("[CreaterSymlinkManager] : Генерация симлмнка")
         original_path = original_path()
         path, orig_name = original_path.rsplit("/", 1)
+        jellyfin_dir = config.JELLYFIN_FOLDER_OTHER
         for me in config.MEDIA_EXTENSIONS:
             if me[3] == category:
-                dir = me[4]
+                jellyfin_dir = me[4]
                 break
-        target_path = f'{config.JELLYFIN_FOLDER_OTHER}/{custam_name}'
+        target_path = f'{jellyfin_dir}/{custam_name}'
         split_orig_name = orig_name.rsplit(".", 1)
         if len(split_orig_name) >= 2:
             ext = split_orig_name[1]
@@ -77,14 +79,14 @@ class CreaterSymlinks:
         self.client = True
     def create_symlink(self, original_path: str, target_file: str):
         if os.path.lexists(target_file):
-            SimpleLogger().log(f"Симлинк уже существует: {target_file}")
+            SimpleLogger().log(f"[CreaterSymlinks] : Симлинк уже существует: {target_file}")
             return
         try:
             os.makedirs(os.path.dirname(target_file), exist_ok=True)
             os.symlink(original_path, target_file)
-            SimpleLogger().log(f"Симлинк создан: {target_file} -> {original_path}")
+            SimpleLogger().log(f"[CreaterSymlinks] : Симлинк создан: {target_file} -> {original_path}")
         except Exception as e:
-            SimpleLogger().log(f"Ошибка создания симлинка: {e}")
+            SimpleLogger().log(f"[CreaterSymlinks] : Ошибка создания симлинка: {e}")
 
 
 
@@ -96,6 +98,7 @@ class SSHSymlinkCreator:
     def connect(self):
         """Устанавливает SSH-соединение."""
         self.client = paramiko.SSHClient()
+        SimpleLogger().log(f"[SSHSymlinkCreator] : Устанавливает SSH-соединение. SSHSymlinkCreator")
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         try:
             self.client.connect(
@@ -104,13 +107,15 @@ class SSHSymlinkCreator:
                 username=config.SYMLINK_LOGIN,
                 password=config.SYMLINK_PASS,
             )
+            SimpleLogger().log(f"[SSHSymlinkCreator] : SSH-соединение установленно")
         except:
             self.client = None
+            SimpleLogger().log("[SSHSymlinkCreator] : SSH-соединение не установлено")
 
     def create_symlink(self, relative_path: str, targer_path):
         """Создает символическую ссылку на удаленном сервере."""
         if not self.client:
-            SimpleLogger().log("SSH-соединение не установлено")
+            SimpleLogger().log("[SSHSymlinkCreator] : SSH-соединение не установлено")
             return
 
         command = f'ln -s "{relative_path}" "{targer_path}"'.replace('\\\\', '\\').replace('\\', '/')
@@ -119,15 +124,15 @@ class SSHSymlinkCreator:
         stdin, stdout, stderr = self.client.exec_command(command_mkdir)
         error = stderr.read().decode()
         if error:
-            SimpleLogger().log(f"Ошибка при создании mkdir: {error}")
+            SimpleLogger().log(f"[SSHSymlinkCreator] : Ошибка при создании mkdir: {error}")
 
         stdin, stdout, stderr = self.client.exec_command(command, get_pty=True)
         stdout.channel.set_combine_stderr(True)
 
         # Чтение вывода и ошибок в одном потоке
         output = stdout.read().decode('utf-8')
-        SimpleLogger().log(command)
-        SimpleLogger().log(output)
+        SimpleLogger().log(f"[SSHSymlinkCreator] : {command}")
+        SimpleLogger().log(f"[SSHSymlinkCreator] : {output}")
         # return stdout.read().decode().strip()
 
     def close(self):

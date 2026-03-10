@@ -37,6 +37,7 @@ class BotClient:
         self.search_title = ""
         self.chat_id = update.effective_chat.id
         self.user_id = update.effective_user.id
+        SimpleLogger().log("[BotClient] : init")
 
         self.tracker_type = config.TRACKERS[0]
         self.old_ready_msg_id: int | None = None
@@ -44,12 +45,15 @@ class BotClient:
         self.tracker = TorrentTracker()
         self.x1337 = None
         self.torrent_client = None
+        SimpleLogger().log("[BotClient] : TorrentTracker start")
 
         db = []
         if config.ENABLE_KINOPOISK:
             db.append((KinopoiskDatabaseSearch(), 'cinema'))
         db.append((AnimeDatabaseSearch(), 'anime'))
         self.__db_manager = ManagerDB(db)
+
+        SimpleLogger().log("[BotClient] : ManagerDB start")
 
         if torrent_settings:
             try:
@@ -71,7 +75,7 @@ class BotClient:
                 username=config.tornt_cli_login,
                 password=config.tornt_cli_pass,
             )
-
+        SimpleLogger().log("[BotClient] : torrent_client start")
         self.__last_search_title = ""
         self.__list_torrent_info: List[ABCTorrentInfo] = []
         self.__list_active_torrent: List[ActiveTorrentsInfo] = []
@@ -81,6 +85,7 @@ class BotClient:
         self.creater_link = None
         if config.JELLYFIN_ENABLE and torrent_settings == None:
             self.creater_link = CreaterSymlinkManager()
+            SimpleLogger().log("[BotClient] : CreaterSymlinkManager start")
 
     def search_torrent(self, search_title: str, tracker_type: str) -> None:
         self.__list_torrent_info = self.tracker.get_tracker_list(search_title, tracker_type)
@@ -106,7 +111,9 @@ class BotClient:
 
         add_text, self.__true_name_jellyfin = self.__db_manager.get_info_text_and_names(categories,
                                                                                         self.__last_search_title)
-        return f"{''.join(items)} {add_text}"
+        return (f"`{self.__last_search_title}`\n"
+                f"----------------------------------------\n"
+                f"{''.join(items)} {add_text}")
 
     def get_torrent_info_list_len(self) -> int:
         if self.__list_torrent_info:
@@ -119,6 +126,9 @@ class BotClient:
             return len(self.__list_active_torrent)
         else:
             return 0
+
+    def get_torrent_sort_category(self, num) -> str:
+        return self.__list_torrent_info[num].short_category
 
     def __start_download_torrent(self, num: int):
         self.__selected_torrent_info = self.__list_torrent_info[num]
@@ -156,6 +166,8 @@ class BotClient:
                 name = arg_param
             else:
                 name = self.__true_name_jellyfin
+                if torrent_.short_category == "anime":
+                    self.__true_name_jellyfin += "/Season 01"
             if not name:
                 return
             self.creater_link.create_symlink(lambda: self.torrent_client.get_path(torrent_.id_torrent), name,
@@ -173,7 +185,7 @@ class BotClient:
                     else:
                         pass
         except Exception as e:
-            SimpleLogger().log(f"start_download_with_progres_bar: Ошибка: {e}")
+            SimpleLogger().log(f"[BotClient] : start_download_with_progres_bar: Ошибка: {e}")
 
     def delete_torrent(self, num):
         self.torrent_client.delete_torrent(self.__list_active_torrent[int(num)].id)
@@ -202,7 +214,6 @@ class BotClient:
 
     def get_default_name_jellyfin(self):
         return self.__true_name_jellyfin
-
 
 class TelegramBot:
     MAX_RETRIES = 6
@@ -392,13 +403,13 @@ class TelegramBot:
     async def cmd_look(self, update: Update, context) -> None:
         try:
             num_ = int(update.message.text.split()[1])
-            self.logger.log(f"cmd_look {num_}")
+            self.logger.log(f"[TelegramBot] : cmd_look {num_}")
             await self.handler_cmd_look(update, context, num_)
         except Exception as e:
             await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                              text="Поле {НОМЕР} не должно быть пустым")
             self.last_error_st = e
-            self.logger.log(f"cmd_look {e}")
+            self.logger.log(f"[TelegramBot] : cmd_look {e}")
 
     async def handler_cmd_look(self, update: Update, context, num: int) -> None:
         client = self.__get_client_by_chat_id(update.effective_chat.id)
@@ -407,7 +418,7 @@ class TelegramBot:
                                              text="Для начала введите: /start")
         else:
             try:
-                self.logger.log(f"cmd_look {num} ")
+                self.logger.log(f"[TelegramBot] : cmd_look {num} ")
                 if client.get_torrent_info_list_len() < num:
                     await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                      text=f"Номер: {num} отсутствует")
@@ -419,21 +430,22 @@ class TelegramBot:
                 await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                  text="Поле {НОМЕР} не должно быть пустым")
                 self.last_error_st = e
-                self.logger.log(f"h_cmd_look {e}")
+                self.logger.log(f"[TelegramBot] : h_cmd_look {e}")
 
     async def cmd_start(self, update: Update, context) -> None:
         chat_id = update.effective_chat.id
         user_id = update.effective_user.id
-        self.logger.log(f"cmd_start:  chat_id {chat_id},  user_id {user_id}")
+        self.logger.log(f"[TelegramBot] : cmd_start:  chat_id {chat_id},  user_id {user_id}")
         msg = await self.send_message_whit_try(context=context, chat_id=chat_id,
                                                text="Регистрация. Ждите")
         if msg is None:
-            self.logger.log(f"cmd_start:  msg is None")
+            self.logger.log(f"[TelegramBot] : cmd_start:  msg is None")
             return
 
         client = next((client for client in self.clients if client.user_id == user_id), None)
         if client:
             self.clients.remove(client)
+            self.logger.log(f"[TelegramBot] : клиент уже есть: {user_id}, он будет пересоздан")
 
         msg_arg = update.message.text[7:].split(":")
         clients_: BotClient | None = None
@@ -492,7 +504,7 @@ class TelegramBot:
     async def handler_cmd_search(self, update: Update, context,
                                  request: str, tracker_type: str = '') -> None:
         self.num_list_torrent = 0
-        self.logger.log(f"cmd_search {request}")
+        self.logger.log(f"[TelegramBot] : cmd_search {request}")
         client = self.__get_client_by_chat_id(update.effective_chat.id)
         if not client:
             await self.send_message_whit_try(context=context,
@@ -531,7 +543,7 @@ class TelegramBot:
 
     async def handler_cmd_list_active_torrent(self, update: Update, context) -> None:
         self.num_list_active_torrent = 0
-        self.logger.log(f"cmd__active_torrent")
+        self.logger.log(f"[TelegramBot] : cmd__active_torrent")
         client = self.__get_client_by_chat_id(update.effective_chat.id)
 
         if not client:
@@ -581,7 +593,7 @@ class TelegramBot:
         if len(search_arg) > 1:
             arg_param = ' '.join(search_arg[1:])
 
-        self.logger.log(f"cmd_download {search_arg}")
+        self.logger.log(f"[TelegramBot] : cmd_download {search_arg}")
         await self.handler_cmd_download(update, context, num, arg_param, other)
 
     async def handler_cmd_download(self, update: Update, context,
@@ -611,21 +623,21 @@ class TelegramBot:
                     await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                                      text="Ошибка обработки команды")
                     self.last_error_st = e
-                    self.logger.log(f"h_cmd_download {e}, command ")
+                    self.logger.log(f"[TelegramBot] : h_cmd_download {e}, command ")
 
     async def retry_operation(self, func, *args, retries=0, **kwargs):
         try:
             return await func(*args, **kwargs)
         except Exception as e:
             if retries < self.MAX_RETRIES:
-                self.logger.log(f"Ошибка сети Telegram: {e}. Попробую снова через 2 секунд. Попытка {retries + 1}/{self.MAX_RETRIES}.")
+                self.logger.log(f"[TelegramBot] : Ошибка сети Telegram: {e}. Попробую снова через 2 секунд. Попытка {retries + 1}/{self.MAX_RETRIES}.")
                 if "Can't parse entities:" in str(e):
                     kwargs["parse_mode"] = None
                 elif "Message is not modified:" in str(e):
                     return None
                 elif "Flood control exceeded" in str(e):
                     self.logger.log(
-                        f"Ошибка сети Telegram: {e}. Попробую снова через 20 секунд. Попытка {retries + 1}/{self.MAX_RETRIES}.")
+                        f"[TelegramBot] : Ошибка сети Telegram: {e}. Попробую снова через 20 секунд. Попытка {retries + 1}/{self.MAX_RETRIES}.")
                     await asyncio.sleep(20)
                 await asyncio.sleep(2)
                 return await self.retry_operation(func, *args, retries=retries + 1, **kwargs)
@@ -634,7 +646,7 @@ class TelegramBot:
                 return None
 
     async def send_message_whit_try(self, chat_id, text, context, parse_mode=None, reply_markup=None, disable_web_page_preview = False):
-        self.logger.log(text)
+        self.logger.log(f"[TelegramBot] : {text}")
         return await self.retry_operation(
             context.bot.send_message,
             chat_id=chat_id,
@@ -645,7 +657,7 @@ class TelegramBot:
         )
 
     async def query_update_whit_try(self, text, query, parse_mode=None, reply_markup=None, disable_web_page_preview=False):
-        self.logger.log(text)
+        self.logger.log(f"[TelegramBot] : {text}")
         return await self.retry_operation(
             query.edit_message_text,
             text=text,
@@ -675,7 +687,7 @@ class TelegramBot:
 
 
     async def edit_message_whit_try(self, chat_id, text, context, msg, parse_mode=None, reply_markup=None):
-        self.logger.log(text)
+        self.logger.log(f"[TelegramBot] : {text}")
         return await self.retry_operation(
             context.bot.edit_message_text,
             chat_id=chat_id,
@@ -695,6 +707,8 @@ class TelegramBot:
 
         if default_name:
             text = f"Введите название для symlink\n(по умолчанию: *{default_name}*)"
+            if client.get_torrent_sort_category(client.user_states.num_torrents) == "anime":
+                text = f"Введите название для symlink\n(по умолчанию: *{default_name}*`/Season 01`)"
             key = InlineKeyboardMarkup([[InlineKeyboardButton("Исп. по умолч.",
                                                               callback_data="used_default_name")],
                                         [InlineKeyboardButton("Отменить.",
@@ -706,6 +720,8 @@ class TelegramBot:
                                              reply_markup=key)
         else:
             text = f"Введите название для symlink"
+            if client.get_torrent_sort_category(client.user_states.num_torrents) == "anime":
+                text = f"Введите название для symlink\nanime`/Season 00`"
             msg = await self.send_message_whit_try(context=context, chat_id=update.effective_chat.id,
                                              text=text,
                                              parse_mode="Markdown")
@@ -926,7 +942,7 @@ class ProgressBar:
                         break
 
                 except NetworkError as e:
-                    self.logger.log(f"Ошибка сети: {e}")
+                    self.logger.log(f"[ProgressBar] : Ошибка сети: {e}")
                     print(f"Ошибка сети: {e}")
             await asyncio.sleep(3)
             progress = self.__progress_value()
@@ -937,7 +953,7 @@ class ProgressBar:
                                                 text=f"{self.__name}Прогресс: {progress_bar}\nЗагрузка завершена!",
                                                            parse_mode="Markdown")
         except NetworkError as e:
-            self.logger.log(f"Ошибка сети: {e}")
+            self.logger.log(f"[ProgressBar] : Ошибка сети: {e}")
 
 
 class ProgressBarWithBtn(ProgressBar):

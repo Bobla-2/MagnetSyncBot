@@ -6,6 +6,7 @@ import module.crypto_token.config as config
 import bencodepy
 import hashlib
 import urllib.parse
+from module.logger.logger import SimpleLogger
 
 
 def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
@@ -147,12 +148,13 @@ class AniDub(ABCTorrenTracker):
         response = requests.post(search_url, headers=headers, data=data, proxies=self.__proxies)
         if response.status_code != 200:
             print(f"Error fetching the page: {response.status_code}")
+            SimpleLogger().log(f"[AniDub] : Error fetching the page: {response.status_code}")
             return []
 
         soup = BeautifulSoup(response.text, 'html.parser')
         table = soup.find(class_='search_post')
         if not table:
-            print("No torrents found.")
+            SimpleLogger().log("[AniDub] : No torrents found.")
             return [TorrentInfo(category="anime",
                                 name="Найдено 0 аниме",
                                 )]

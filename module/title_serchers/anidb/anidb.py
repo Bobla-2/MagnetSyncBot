@@ -6,6 +6,7 @@ from xml.dom.minidom import parse
 from fuzzywuzzy import fuzz
 from typing import List, Tuple
 from module.crypto_token.config import proxy
+from module.logger.logger import SimpleLogger
 from ..ABC import ABCDatabaseSearch
 import re
 from datetime import datetime, timedelta
@@ -56,7 +57,7 @@ class AnimeDatabaseSearch(ABCDatabaseSearch):
                 return [(title['title'], title['lang'], title['type']) for title in anime['titles']]
         return []
 
-    def get_names_and_url_title(self, search_title: str) -> (List[str], str):
+    def get_names_and_url_title(self, search_title: str):
         if self.__check_creation_date():
             AnimeDatabaseLoader().update_database()
             self.__anime_list = AnimeDatabaseLoader().load_or_parse_database()
@@ -76,12 +77,14 @@ class AnimeDatabaseSearch(ABCDatabaseSearch):
         if self.__data_create:
             current_time = datetime.now()
             if current_time - self.__data_create > timedelta(days=len_days):
-                print(f"Прошло больше 14 дней с создания XML. Дата создания: {self.__data_create}")
+                SimpleLogger().log(f"[AnimeDatabaseSearch] : Прошло больше 14 дней с создания XML. Дата создания: {self.__data_create}")
                 return True
             else:
-                print(f"С момента создания XML прошло меньше 14 дней. Дата создания: {self.__data_create}")
+                SimpleLogger().log(
+                    f"[AnimeDatabaseSearch] : С момента создания XML прошло меньше 14 дней. Дата создания: {self.__data_create}")
         else:
-            print("Не удалось найти дату создания в XML.")
+            SimpleLogger().log(
+                f"[AnimeDatabaseSearch] : Не удалось найти дату создания в XML.")
         return False
 
 

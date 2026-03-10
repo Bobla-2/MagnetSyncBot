@@ -113,14 +113,14 @@ class TransmissionManager(TorrentManager):
         return out_list
 
     def delete_torrent(self, id: int):
-        SimpleLogger().log(f"TransmissionManager: Удаление торрента: {id}")
+        SimpleLogger().log(f"[TransmissionManager] : Удаление торрента: {id}")
         try:
             self.__client.remove_torrent(
                 ids=id,
                 delete_data=True
             )
         except Exception as e:
-            SimpleLogger().log(f"TransmissionManager: Ошибка при удалении торрента: {e}")
+            SimpleLogger().log(f"[TransmissionManager] : Ошибка при удалении торрента: {e}")
 
     def get_path(self, id: int = None) -> str:
         '''
@@ -197,9 +197,9 @@ class QBittorrentManager(TorrentManager):
             elif hasattr(self.__client, 'torrents_pause'):
                 self.__client.torrents_pause(hashes=id)
             else:
-                SimpleLogger().log("Невозможно остановить торрент — нет подходящего метода.")
+                SimpleLogger().log("[QBittorrentManager] : Невозможно остановить торрент — нет подходящего метода.")
         except Exception as e:
-            SimpleLogger().log(f"Ошибка при остановке торрента: {e}")
+            SimpleLogger().log(f"[QBittorrentManager] : Ошибка при остановке торрента: {e}")
 
     def get_path(self, id: str = None) -> str:
         '''
@@ -223,7 +223,7 @@ class QBittorrentManager(TorrentManager):
         return out_list
 
     def delete_torrent(self, torrent_hash: str):
-        SimpleLogger().log(f"QBittorrentManager: Удалении торрента: {torrent_hash}")
+        SimpleLogger().log(f"[QBittorrentManager] : Удалении торрента: {torrent_hash}")
         try:
             self.__client.torrents_pause(torrent_hashes=torrent_hash)
 
@@ -232,6 +232,6 @@ class QBittorrentManager(TorrentManager):
                 torrent_hashes=torrent_hash
             )
         except Exception as e:
-            SimpleLogger().log(f"QBittorrentManager: Ошибка при удалении торрента: {e}")
+            SimpleLogger().log(f"[QBittorrentManager] : Ошибка при удалении торрента: {e}")
 
 

@@ -154,7 +154,7 @@ class Anilibria(ABCTorrenTracker):
 
         response = requests.get(search_url, headers=headers, proxies=self.__proxies)
         if response.status_code != 200:
-            self.logger.log(f"Error fetching the page: {response.status_code}")
+            self.logger.log(f"[Anilibria] : Error fetching the page: {response.status_code}")
             return []
         else:
             data = response.json()

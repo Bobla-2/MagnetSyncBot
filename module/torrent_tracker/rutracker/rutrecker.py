@@ -5,9 +5,11 @@ import time
 from module.crypto_token.config import get_pass_rutreker, get_login_rutreker, proxy
 import module.crypto_token.config as config
 from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo, ABCTorrenTracker
+from module.logger.logger import SimpleLogger
 import bencodepy
 import hashlib
 import urllib.parse
+
 
 def _retries_retry_operation(func, *args, retries: int = 2, **kwargs):
     for attempt in range(retries):
@@ -123,10 +125,16 @@ class Rutracker(ABCTorrenTracker):
     в случае неудачи возвращает список с TorrentInfo содержащим сообщение об ошибке в поле 'name'
     """
     def __init__(self):
+        SimpleLogger().log("[Rutracker] : start init")
         self.__rutracker = _retries_retry_operation(_Rutracker,
                                                     username=get_login_rutreker(),
                                                     password=get_pass_rutreker(),
                                                     proxy=config.proxy)
+
+        if not self.__rutracker:
+            SimpleLogger().log("[Rutracker] : error init")
+        else:
+            SimpleLogger().log("[Rutracker] : end init")
 
 
     def get_tracker_list(self, search_request: str) -> list[ABCTorrentInfo]:

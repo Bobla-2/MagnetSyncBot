@@ -133,6 +133,7 @@ class X1337(ABCTorrenTracker):
     '''
 
     def __init__(self, proxy_=None):
+        SimpleLogger().log("[X1337] : init")
         self.base_url = config.X1337_BASE_URL
         self.__search_url = self.base_url + '/search/{}/1/'
 
@@ -140,6 +141,7 @@ class X1337(ABCTorrenTracker):
                           'https': proxy_ or config.proxy}
 
     def __get_search_list(self, query: str, search_url: str) -> list[ABCTorrentInfo]:
+        SimpleLogger().log("[X1337] : get search list")
         self.logger = SimpleLogger()
         search_url = search_url.format(query)
         headers = {
@@ -148,13 +150,13 @@ class X1337(ABCTorrenTracker):
 
         response = requests.get(search_url, headers=headers, proxies=self.__proxies)
         if response.status_code != 200:
-            self.logger.log(f"Error fetching the page: {response.status_code}")
+            self.logger.log(f"[X1337] : Error fetching the page: {response.status_code}")
             return []
 
         soup = BeautifulSoup(response.text, 'html.parser')
         table = soup.find('table', class_='table-list')
         if not table:
-            self.logger.log("No torrents found.")
+            self.logger.log("[X1337] : No torrents found.")
             return []
 
         torrent_list = []
