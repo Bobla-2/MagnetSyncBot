@@ -3,26 +3,27 @@
     let currentDefaultJlName = "";
     let deleteNum = null;
     let deleteName = "";
+    let currentMobilePanel = "results";
 
     function setStatus(text) {
         document.getElementById("statusBar").textContent = text || "";
     }
 
-    const dialog = document.getElementById("infoDialog");
+   function enableOutsideClickClose(dialog) {
+    dialog.addEventListener("click", function (e) {
+        const rect = dialog.getBoundingClientRect();
 
-        dialog.addEventListener("click", function (e) {
-            const rect = dialog.getBoundingClientRect();
+        const isInDialog =
+            e.clientX >= rect.left &&
+            e.clientX <= rect.right &&
+            e.clientY >= rect.top &&
+            e.clientY <= rect.bottom;
 
-            const isInDialog =
-                e.clientX >= rect.left &&
-                e.clientX <= rect.right &&
-                e.clientY >= rect.top &&
-                e.clientY <= rect.bottom;
-
-            if (!isInDialog) {
-                dialog.close();
-            }
-        });
+        if (!isInDialog) {
+            dialog.close();
+        }
+    });
+}
 
     async function api(url, options = {}) {
         const response = await fetch(url, {
@@ -68,19 +69,19 @@
                 <div class="result-actions">
                     <button onclick="showInfo(${item.num})">Показать доп. инфу</button>
                     <button onclick="startDownload(${item.num}, false)">Скачать</button>
-                    <button onclick="startDownload(${item.num}, true)">Скачать + действие</button>
+                    <button onclick="startDownload(${item.num}, true)">Скачать + symlink</button>
                 </div>
             </div>
         `).join("");
     }
 
-     function renderDownloads(items) {
-    const root = document.getElementById("downloads");
-    document.getElementById("downloadsInfo").textContent = String(items.length);
+    function renderDownloads(items) {
+        const root = document.getElementById("downloads");
+        document.getElementById("downloadsInfo").textContent = `Активные: ${items.length}`;
 
-    if (!items.length) {
-        root.innerHTML = '<div class="muted">Нет активных торрентов</div>';
-        return;
+        if (!items.length) {
+            root.innerHTML = '<div class="muted">Нет активных торрентов</div>';
+            return;
     }
 
     root.innerHTML = items.map(item => `
@@ -126,11 +127,12 @@
         const tracker = document.getElementById("trackerType").value;
 
         if (!query) {
-            setStatus("Пустой запрос");
+            document.getElementById("searchInfo").textContent = `Пустой запрос`;
+//            setStatus("Пустой запрос");
             return;
         }
-
-        setStatus("Поиск...");
+        document.getElementById("searchInfo").textContent = `Поиск...`;
+//        setStatus("Поиск...");
 
         try {
             const data = await api("/api/search", {
@@ -142,9 +144,10 @@
             });
 
             currentDefaultJlName = data.default_name_jellyfin || "";
+            updateJlButton()
             document.getElementById("searchInfo").textContent = `Найдено: ${data.count}`;
             renderResults(data.items);
-            setStatus("Поиск завершён");
+//            setStatus("Поиск завершён");
         } catch (e) {
             setStatus(e.message);
         }
@@ -157,7 +160,7 @@
         const data = await api(`/api/torrent/${num}/info`);
         currentInfoNum = num;
         currentDefaultJlName = data.default_name_jellyfin || currentDefaultJlName || "";
-
+        updateJlButton()
         const infoName = document.getElementById("infoName");
         const infoText = document.getElementById("infoText");
         const infoLinkWrap = document.getElementById("infoLinkWrap");
@@ -228,11 +231,24 @@
     async function loadLastError() {
         try {
             const data = await api("/api/last_error");
-            alert(data.error || "Ошибок нет");
+
+            const dialog = document.getElementById("errorDialog");
+            const text = document.getElementById("errorText");
+
+            text.textContent = data.error || "Ошибок нет";
+
+            dialog.showModal();
         } catch (e) {
             setStatus(e.message);
         }
     }
+    const infoDialog = document.getElementById("infoDialog");
+    const errorDialog = document.getElementById("errorDialog");
+    const deleteDialog = document.getElementById("deleteDialog");
+
+    if (infoDialog) enableOutsideClickClose(infoDialog);
+    if (errorDialog) enableOutsideClickClose(errorDialog);
+    if (deleteDialog) enableOutsideClickClose(deleteDialog);
 
     function openDeleteDialog(num, name) {
         deleteNum = num;
@@ -272,6 +288,7 @@
         try {
             const data = await api("/api/search/last");
             currentDefaultJlName = data.default_name_jellyfin || "";
+            updateJlButton()
             document.getElementById("searchInfo").textContent = `Найдено: ${data.count}`;
             if (data.query) {
                 document.getElementById("searchQuery").value = data.query;
@@ -281,6 +298,34 @@
             setStatus(e.message);
         }
     }
+
+   function updateJlButton() {
+    const btn = document.getElementById("btnUseJl");
+
+    if (!btn) return;
+
+    if (currentDefaultJlName) {
+        btn.textContent = window.innerWidth <= 900 ? `Подск.: ${currentDefaultJlName}` : `Подсказка: ${currentDefaultJlName}`;
+        btn.disabled = false;
+    } else {
+        btn.textContent = "Подсказка";
+        btn.disabled = true;
+    }
+}
+
+    document.getElementById("btnUseJl").addEventListener("click", function () {
+    if (!currentDefaultJlName) {
+        return;
+    }
+
+    const input = document.getElementById("searchQuery");
+    input.value = currentDefaultJlName;
+
+    searchTorrents();  // сразу поиск
+});
+
+
+
     function isMobileView() {
         return window.innerWidth <= 900;
     }
@@ -290,6 +335,7 @@
         const panelDownloads = document.getElementById("panelDownloads");
         const tabResults = document.getElementById("tabResults");
         const tabDownloads = document.getElementById("tabDownloads");
+        currentMobilePanel = name;
 
         if (!isMobileView()) {
             panelResults.classList.remove("hidden-mobile");
@@ -298,6 +344,7 @@
             tabDownloads.classList.remove("active");
             return;
         }
+
 
         if (name === "downloads") {
             panelResults.classList.add("hidden-mobile");
@@ -312,6 +359,15 @@
         }
     }
 
+//   авто скрытие клавиатуры
+   document.getElementById("searchQuery").addEventListener("keyup", function (e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            this.blur();
+            searchTorrents();
+        }
+    });
+
     document.getElementById("tabResults").addEventListener("click", function () {
         showMobilePanel("results");
     });
@@ -321,7 +377,7 @@
     });
 
     window.addEventListener("resize", function () {
-        showMobilePanel("results");
+        showMobilePanel(currentMobilePanel);
     });
 
     document.getElementById("btnSearch").addEventListener("click", searchTorrents);
@@ -335,6 +391,10 @@
 
     document.getElementById("dialogClose").addEventListener("click", function () {
         document.getElementById("infoDialog").close();
+    });
+
+    document.getElementById("errorClose").addEventListener("click", function () {
+        document.getElementById("errorDialog").close();
     });
 
     document.getElementById("dialogDownload").addEventListener("click", async function () {

@@ -100,6 +100,10 @@ class TorrentInfo(ABCTorrentInfo):
                 self.__short_categories = "other"
         return self.__short_categories
 
+    @property
+    def url(self) -> str:
+        return self.__url
+
 
 def singleton(cls):
     instances = {}

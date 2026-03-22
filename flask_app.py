@@ -214,6 +214,9 @@ def api_search():
             items = client.web_get_search_results()
             jl_name = client.get_default_name_jellyfin()
 
+        if  items and "Ошибка поиска. Попробуйте снова" in items[0].get("name"):
+            items = []
+
         return make_json_response({
             "ok": True,
             "items": items,
@@ -340,9 +343,10 @@ def api_downloads():
 
 @app.get("/api/last_error")
 def api_last_error():
+    log_text = logger.get_log_text() or ""
     return jsonify({
         "ok": True,
-        "error": _last_error,
+        "error": log_text or "",
     })
 
 
