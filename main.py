@@ -4,6 +4,9 @@ import argparse
 import time
 from module.logger.logger import SimpleLogger
 
+import traceback
+
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Bot settings")
     parser.add_argument("-p", "--proxy", type=str, help="Set the proxy")
@@ -23,7 +26,9 @@ if __name__ == '__main__':
     SimpleLogger().log("[main] : BOT STARTED")
     while True:
         try:
+            SimpleLogger().log("[main] : BOT setup")
             tg_bot.setup(config.get_token())
+            SimpleLogger().log("[main] : BOT run")
             tg_bot.run()
         except Exception as e:
             SimpleLogger().log(f"[main] : tg_bot.run() ERROR {e}")

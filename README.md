@@ -33,38 +33,22 @@ python main.py
 
 ## Использование_Docker
 
-**1) Скачать последний релиз**
+**1) Скачать и распаковать последний релиз**
 ```
-wget https://github.com/Bobla-2/MagnetSyncBot/releases/latest/download/MagnetSyncBot.zip
+wget https://github.com/Bobla-2/MagnetSyncBot/releases/latest/download/MagnetSyncBot.zip && unzip MagnetSyncBot.zip
 ```
-**2) Распаковать проект**
-```
-unzip MagnetSyncBot.zip
-```
-**3) Создать файл конфигурации**
 
+**2) Создать файл конфигурации**
 ```
 sudo nano ./MagnetSyncBot/module/crypto_token/config.py
 ```
 
 Подробнее в [Создание_config_файла](#Создание_config_файла)
 
-**4) Сборка образа** 
+**3) Сборка образа и запуск** 
 ```
-docker build -t magnetsyncbot ./MagnetSyncBot/
+docker build -t magnetsyncbot ./MagnetSyncBot/ && cd ./MagnetSyncBot && docker compose up -d
 ```
-**5-1) Создание контейнера через docker-compose**
-```
-cd ./MagnetSyncBot && docker compose up -d
-```
-**5-2) Создание контейнера через docker run**
-```
-docker run -d -p 8080:8080 -p 9091:9091 --name magnetsyncbot magnetsyncbot
-```
-10811 - порт прокси;
-8080 - qBittorrent;
-9091 - transmission;
-
 
 
 

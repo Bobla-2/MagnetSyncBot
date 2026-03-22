@@ -20,11 +20,11 @@ class ABCTorrentInfo(ABC):
         """Размер торрента (например, в MB, GB)."""
         pass
 
-    @property
-    @abstractmethod
-    def full_info(self) -> str:
-        """Полная информация о торренте в формате .md."""
-        pass
+    # @property
+    # @abstractmethod
+    # def full_info(self) -> str:
+    #     """Полная информация о торренте в формате .md."""
+    #     pass
 
     @property
     @abstractmethod
@@ -48,6 +48,11 @@ class ABCTorrentInfo(ABC):
         """Возвращает простую категорию торрента из config.MEDIA_EXTENSIONS"""
         pass
 
+    @property
+    @abstractmethod
+    def url(self) -> str:
+        pass
+
 
 class ABCTorrenTracker(ABC):
     '''Класс используемый для поиска тореннтов'''
@@ -59,5 +64,7 @@ class ABCTorrenTracker(ABC):
         :return: List[ABCTorrentInfo] возвращает список датаклассов с информацией о трекерах
         '''
         pass
+
+
 
 

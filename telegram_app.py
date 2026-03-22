@@ -30,13 +30,10 @@ class ClientStatus:
         self.num_torrents: int | None = None
 
 
-class BotClient:
-    def __init__(self, context, update: Update, torrent_settings: list = None):
-        self.context = context
+class Client:
+    def __init__(self, torrent_settings: list = None):
         self.user_states: ClientStatus = ClientStatus()
         self.search_title = ""
-        self.chat_id = update.effective_chat.id
-        self.user_id = update.effective_user.id
         SimpleLogger().log("[BotClient] : init")
 
         self.tracker_type = config.TRACKERS[0]
@@ -51,7 +48,7 @@ class BotClient:
         if config.ENABLE_KINOPOISK:
             db.append((KinopoiskDatabaseSearch(), 'cinema'))
         db.append((AnimeDatabaseSearch(), 'anime'))
-        self.__db_manager = ManagerDB(db)
+        self.db_manager = ManagerDB(db)
 
         SimpleLogger().log("[BotClient] : ManagerDB start")
 
@@ -76,21 +73,133 @@ class BotClient:
                 password=config.tornt_cli_pass,
             )
         SimpleLogger().log("[BotClient] : torrent_client start")
-        self.__last_search_title = ""
-        self.__list_torrent_info: List[ABCTorrentInfo] = []
-        self.__list_active_torrent: List[ActiveTorrentsInfo] = []
-        self.__selected_torrent_info: ABCTorrentInfo | None = None
-        self.__dict_progress_bar = {}
-        self.__true_name_jellyfin = ''
+        self.last_search_title = ""
+        self.list_torrent_info: List[ABCTorrentInfo] = []
+        self.list_active_torrent: List[ActiveTorrentsInfo] = []
+        self.selected_torrent_info: ABCTorrentInfo | None = None
+        self.dict_progress_bar = {}
+        self.true_name_jellyfin = ''
         self.creater_link = None
         if config.JELLYFIN_ENABLE and torrent_settings == None:
             self.creater_link = CreaterSymlinkManager()
             SimpleLogger().log("[BotClient] : CreaterSymlinkManager start")
+        SimpleLogger().log("[BotClient] : ready")
 
     def search_torrent(self, search_title: str, tracker_type: str) -> None:
-        self.__list_torrent_info = self.tracker.get_tracker_list(search_title, tracker_type)
-        self.__last_search_title = search_title
-        self.__true_name_jellyfin = ''
+        self.list_torrent_info = self.tracker.get_tracker_list(search_title, tracker_type)
+        self.last_search_title = search_title
+        self.true_name_jellyfin = ''
+
+    def get_torrent_info_list_len(self) -> int:
+        if self.list_torrent_info:
+            return len(self.list_torrent_info)
+        else:
+            return 0
+
+    def get_active_torrent_info_list_len(self) -> int:
+        if self.list_active_torrent:
+            return len(self.list_active_torrent)
+        else:
+            return 0
+
+    def get_torrent_sort_category(self, num) -> str:
+        return self.list_torrent_info[num].short_category
+
+    def start_download_torrent(self, num: int):
+        self.selected_torrent_info = self.list_torrent_info[num]
+        if self.torrent_client:
+            for me in config.MEDIA_EXTENSIONS:
+                if me[3] == self.selected_torrent_info.short_category:
+                    dir = me[1]
+                    if magnet := self.selected_torrent_info.get_magnet:
+                        self.selected_torrent_info.id_torrent = self.torrent_client.start_download(
+                            magnet,
+                            dir)
+
+    def stop_download_torrent(self, id_torrent: int) -> None:
+        self.torrent_client.stop_download(id_torrent)
+        self.dict_progress_bar[str(id_torrent)].stop_progress()
+        self.creater_link.stop_task(str(id_torrent))
+
+
+
+    def create_symlink(self, num: int | None = None, arg_param=None) -> None:
+        SimpleLogger().log("[Client] : create_symlink start")
+        if self.creater_link:
+            torrent_: ABCTorrentInfo = self.selected_torrent_info if not num else self.list_torrent_info[num]
+            if arg_param:
+                name = arg_param
+            else:
+                name = self.true_name_jellyfin
+                if torrent_.short_category == "anime":
+                    self.true_name_jellyfin += "/Season 01"
+            if not name:
+                SimpleLogger().log("[Client] : create_symlink not name")
+                return
+            self.creater_link.create_symlink(lambda: self.torrent_client.get_path(torrent_.id_torrent), name,
+                                               progress_value=lambda: self.torrent_client.get_progress(torrent_.id_torrent), id=torrent_.id_torrent, category=torrent_.short_category)
+        else:
+            SimpleLogger().log("[Client] : create_symlink return")
+
+
+    def delete_torrent(self, num):
+        self.torrent_client.delete_torrent(self.list_active_torrent[int(num)].id)
+
+    def get_list_active_torrent(self) -> None:
+        self.list_active_torrent = self.torrent_client.get_list_active_torrents()
+
+    def get_active_full_info_torrent(self, num: int) -> str:
+        if not self.list_active_torrent:
+            return "Ничего не найдено"
+        torrent = self.list_active_torrent[num]
+        return f"{torrent.name}"
+
+    def get_default_name_jellyfin(self):
+        return self.true_name_jellyfin
+
+
+
+class BotClient(Client):
+    def __init__(self, context, update: Update, torrent_settings: list = None):
+        self.context = context
+        self.chat_id = update.effective_chat.id
+        self.user_id = update.effective_user.id
+        super().__init__(torrent_settings)
+
+    def start_progresbar(self, update, context, num=None):
+        """
+        :param num: default selected_torrent_info progress
+        """
+        torrent_: ABCTorrentInfo = self.selected_torrent_info if not num else self.list_torrent_info[num]
+        self.dict_progress_bar[str(torrent_.id_torrent)] = ProgressBarWithBtn(
+            progress_value=lambda: self.torrent_client.get_progress(torrent_.id_torrent),
+            update=update,
+            context=context,
+            total_step=10,
+            name=f'{torrent_.name}',
+            torrent_id=torrent_.id_torrent)
+
+    def start_download_with_progres_bar(self, num, update, context, other, arg_param=None):
+        print(num, other, arg_param)
+        try:
+            self.start_download_torrent(num)
+            if self.selected_torrent_info.id_torrent:
+                self.start_progresbar(update, context)
+                if self.torrent_client:
+                    if other == 'jl':
+                        self.create_symlink(arg_param=arg_param)
+                    else:
+                        pass
+        except Exception as e:
+            SimpleLogger().log(f"[BotClient] : start_download_with_progres_bar: Ошибка: {e}")
+
+    def get_part_list_active_torrent(self, num_: int) -> str:
+        if not self.list_active_torrent:
+            return "Нет истории торрентов"
+        out = []
+        for active_torrent in self.list_active_torrent[6 * num_:6 * (num_ + 1)]:
+            out.append(f"{active_torrent.num}: {active_torrent.name[:36]}\n{active_torrent.status} — {active_torrent.progress}\n\n")
+        return ''.join(out)
 
     def get_torrent_info_part_list(self, num_: int) -> str:
         """
@@ -101,119 +210,45 @@ class BotClient:
             str: Строка с перечислением торрентов и дополнительной информацией,
                  либо сообщение "Ничего не найдено", если список пуст.
         """
-        if not self.__list_torrent_info:
+        if not self.list_torrent_info:
             return "Ничего не найдено"
         categories = []
         items = []
-        for num, torrent_info in enumerate(self.__list_torrent_info[6 * num_:6 * (num_ + 1)]):
+        for num, torrent_info in enumerate(self.list_torrent_info[6 * num_:6 * (num_ + 1)]):
             categories.append(torrent_info.short_category)
-            items.append(f"{num + (num_ * 6)})    {torrent_info.name} || {torrent_info.size}\n\n")
+            items.append(f"{num + (num_ * 6)})    {self.escape_special_chars_translate(torrent_info.name[:101])} || "
+                         f"{torrent_info.size}\n\n")
 
-        add_text, self.__true_name_jellyfin = self.__db_manager.get_info_text_and_names(categories,
-                                                                                        self.__last_search_title)
-        return (f"`{self.__last_search_title}`\n"
+        add_text, self.true_name_jellyfin = self.db_manager.get_info_text_and_names(categories,
+                                                                                        self.last_search_title)
+        return (f"`{self.last_search_title}`\n"
                 f"----------------------------------------\n"
                 f"{''.join(items)} {add_text}")
 
-    def get_torrent_info_list_len(self) -> int:
-        if self.__list_torrent_info:
-            return len(self.__list_torrent_info)
-        else:
-            return 0
-
-    def get_active_torrent_info_list_len(self) -> int:
-        if self.__list_active_torrent:
-            return len(self.__list_active_torrent)
-        else:
-            return 0
-
-    def get_torrent_sort_category(self, num) -> str:
-        return self.__list_torrent_info[num].short_category
-
-    def __start_download_torrent(self, num: int):
-        self.__selected_torrent_info = self.__list_torrent_info[num]
-        if self.torrent_client:
-            for me in config.MEDIA_EXTENSIONS:
-                if me[3] == self.__selected_torrent_info.short_category:
-                    dir = me[1]
-                    if magnet := self.__selected_torrent_info.get_magnet:
-                        self.__selected_torrent_info.id_torrent = self.torrent_client.start_download(
-                            magnet,
-                            dir)
-
-    def stop_download_torrent(self, id_torrent: int) -> None:
-        self.torrent_client.stop_download(id_torrent)
-        self.__dict_progress_bar[str(id_torrent)].stop_progress()
-        self.creater_link.stop_task(str(id_torrent))
-
-    def __start_progresbar(self, update, context, num=None):
-        """
-        :param num: default __selected_torrent_info progress
-        """
-        torrent_: ABCTorrentInfo = self.__selected_torrent_info if not num else self.__list_torrent_info[num]
-        self.__dict_progress_bar[str(torrent_.id_torrent)] = ProgressBarWithBtn(
-            progress_value=lambda: self.torrent_client.get_progress(torrent_.id_torrent),
-            update=update,
-            context=context,
-            total_step=10,
-            name=f'{torrent_.name}',
-            torrent_id=torrent_.id_torrent)
-
-    def __create_symlink(self, num: int | None = None, arg_param=None) -> None:
-        if self.creater_link:
-            torrent_: ABCTorrentInfo = self.__selected_torrent_info if not num else self.__list_torrent_info[num]
-            if arg_param:
-                name = arg_param
-            else:
-                name = self.__true_name_jellyfin
-                if torrent_.short_category == "anime":
-                    self.__true_name_jellyfin += "/Season 01"
-            if not name:
-                return
-            self.creater_link.create_symlink(lambda: self.torrent_client.get_path(torrent_.id_torrent), name,
-                                               progress_value=lambda: self.torrent_client.get_progress(torrent_.id_torrent), id=torrent_.id_torrent, category=torrent_.short_category)
-
-    def start_download_with_progres_bar(self, num, update, context, other, arg_param=None):
-        print(num, other, arg_param)
-        try:
-            self.__start_download_torrent(num)
-            if self.__selected_torrent_info.id_torrent:
-                self.__start_progresbar(update, context)
-                if self.torrent_client:
-                    if other == 'jl':
-                        self.__create_symlink(arg_param=arg_param)
-                    else:
-                        pass
-        except Exception as e:
-            SimpleLogger().log(f"[BotClient] : start_download_with_progres_bar: Ошибка: {e}")
-
-    def delete_torrent(self, num):
-        self.torrent_client.delete_torrent(self.__list_active_torrent[int(num)].id)
-
     def get_full_info_torrent(self, num: int) -> str:
-        if not self.__list_torrent_info:
+        if not self.list_torrent_info:
             return "Ничего не найдено"
-        return self.__list_torrent_info[num].full_info
+        data = self.list_torrent_info[num].get_other_data
 
-    def get_list_active_torrent(self) -> None:
-        self.__list_active_torrent = self.torrent_client.get_list_active_torrents()
+        data_str = []
+        current_length = 0
+        for dt in data:
+            string = f"*{self.escape_special_chars_translate(dt[0])}:* {self.escape_special_chars_translate(dt[1])}"
+            data_str.append(string)
+            current_length += len(string)
+            if current_length > 1950:
+                break
+        res = "\n".join(data_str)
+        return (f"{self.escape_special_chars_translate(self.list_torrent_info[num].name[:101])}\n\n"
+                f"{res}\n"
+                f"[страница]({self.list_torrent_info[num].url})")
 
-    def get_part_list_active_torrent(self, num_: int) -> str:
-        if not self.__list_active_torrent:
-            return "Нет истории торрентов"
-        out = []
-        for active_torrent in self.__list_active_torrent[6 * num_:6 * (num_ + 1)]:
-            out.append(f"{active_torrent.num}: {active_torrent.name[:36]}\n{active_torrent.status} — {active_torrent.progress}\n\n")
-        return ''.join(out)
+    def escape_special_chars_translate(self, text: str) -> str:
+        special_chars = '_*[~`#=|{}\\'
+        translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
+        return text.translate(translation_table)
 
-    def get_active_full_info_torrent(self, num: int) -> str:
-        if not self.__list_active_torrent:
-            return "Ничего не найдено"
-        torrent = self.__list_active_torrent[num]
-        return f"{torrent.name}"
 
-    def get_default_name_jellyfin(self):
-        return self.__true_name_jellyfin
 
 class TelegramBot:
     MAX_RETRIES = 6
@@ -229,7 +264,11 @@ class TelegramBot:
         self.reply_markup_trackers = ReplyKeyboardMarkup(rep_key_tracker, resize_keyboard=True)
 
     def setup(self, token):
+        # if config.proxy:
+        #     self.application = Application.builder().token(token).proxy_url(config.proxy).build()
+        # else:
         self.application = Application.builder().token(token).build()
+
         self.application.add_handler(CommandHandler("start", self.cmd_start))
         self.application.add_handler(CommandHandler("log", self.cmd_log_error))
         self.application.add_handler(CommandHandler("last_error", self.cmd_last_error))
@@ -241,6 +280,7 @@ class TelegramBot:
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.user_msg))
         self.application.add_handler(CallbackQueryHandler(self.handle_menu_selection))
         self.application.add_handler(MessageHandler(filters.Sticker.ALL, self.sticker_handler))
+        self.logger.log(f"[TelegramBot] : setup finished")
 
     def run(self):
         self.application.run_polling(timeout=5, poll_interval=1, drop_pending_updates=True)
@@ -908,8 +948,11 @@ class ProgressBar:
         asyncio.create_task(self.__start_progress())
 
     def __generate_progress_bar(self, progress: float) -> str:
-        filled_length = int(self.__total_step * progress)
-        bar = "█" * filled_length + "–" * (self.__total_step - filled_length)
+        if progress < 0.:
+            bar = "X" * self.__total_step
+        else:
+            filled_length = int(self.__total_step * progress)
+            bar = "█" * filled_length + "–" * (self.__total_step - filled_length)
         return f"\\[{bar}] {int(progress * 100)}%"
 
     async def __start_progress(self):

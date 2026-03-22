@@ -97,8 +97,11 @@ class TransmissionManager(TorrentManager):
         # self.get_path()
         if not id:
             id = self.__id_last
-        progress = self.__client.get_torrent(id).progress / 100
-        print(f'{id} progress download: {progress}')
+        try:
+            progress = self.__client.get_torrent(id).progress / 100
+        except Exception:
+            progress = -1.
+        print(f'[TransmissionManager] : id={id} progress download: {progress}')
         return progress
 
     def stop_download(self, id: int):
@@ -178,7 +181,7 @@ class QBittorrentManager(TorrentManager):
             torrents = self.__client.torrents_info(hashes=id)
             if torrents:
                 progress = torrents[0].progress
-                print(f'{id} progress download: {progress}')
+                print(f'[QBittorrentManager] : id={id} progress download: {progress}')
                 return progress
         return 0.0
 

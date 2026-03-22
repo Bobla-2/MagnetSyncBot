@@ -6,8 +6,8 @@ SOURCE_DIR = r".\\"  # Папка, которую копируем
 DEST_DIR = r"C:\\Users\\savva\\Desktop\\MagnetSyncBot"  # Куда копируем
 
 # Укажи файлы и папки, которые нужно удалить
-FILES_TO_DELETE = ["config.py"]  # Файлы, которые удаляем
-FOLDERS_TO_DELETE = ["logs_backup", "logs", "доки", ".git", ".idea", ".pyc"]  # Папки, которые удаляем
+FILES_TO_DELETE = ["config.py", ".gitignore"]  # Файлы, которые удаляем
+FOLDERS_TO_DELETE = ["logs_backup", "logs", "доки", ".git", ".idea", "__pycache__"]  # Папки, которые удаляем
 
 def copy_directory(source, destination):
     """Копирует папку полностью."""

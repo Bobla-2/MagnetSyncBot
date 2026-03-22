@@ -41,7 +41,7 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def name(self) -> str:
-        return f"{TorrentInfo.escape_special_chars_translate(self.__name[:101])}"
+        return f"{self.__name}"
 
     @property
     def size(self) -> str:
@@ -54,15 +54,8 @@ class TorrentInfo(ABCTorrentInfo):
     @property
     def get_other_data(self) -> str:
         data = self.__parser.get_other_data()
-        data_str = []
-        current_length = 0
-        for dt in data:
-            string = f"*{TorrentInfo.escape_special_chars_translate(dt[0])}:* {TorrentInfo.escape_special_chars_translate(dt[1])}"
-            data_str.append(string)
-            current_length += len(string)
-            if current_length > 1950:
-                break
-        return "\n".join(data_str)
+        data = [["seeds", self.__parser.get_seeders()]] + data
+        return data
 
     @property
     def id_torrent(self) -> str:
@@ -76,11 +69,11 @@ class TorrentInfo(ABCTorrentInfo):
     def category(self) -> str:
         return self.__category
 
-    @property
-    def full_info(self) -> str:
-        return (f"{TorrentInfo.escape_special_chars_translate(self.__name)}\n\n"
-                f"*seeds:* {self.__parser.get_seeders()}\n{self.get_other_data}\n"
-                f"[страница]({self.__url})")
+    # @property
+    # def full_info(self) -> str:
+    #     return (f"{TorrentInfo.escape_special_chars_translate(self.__name)}\n\n"
+    #             f"*seeds:* {self.__parser.get_seeders()}\n{self.get_other_data}\n"
+    #             f"[страница]({self.__url})")
 
     @property
     def short_category(self) -> str | None:

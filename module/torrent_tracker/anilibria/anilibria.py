@@ -51,7 +51,7 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def name(self) -> str:
-        return f"{self.escape_special_chars_translate(self.__name[:101])}"
+        return f"{self.__name}"
 
     @property
     def size(self) -> str:
@@ -63,15 +63,10 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def get_other_data(self) -> str:
-        data_str = []
-        current_length = 0
-        for dt in self.__data:
-            string = f"*{self.escape_special_chars_translate(dt[0])}:* {self.escape_special_chars_translate(dt[1])}"
-            data_str.append(string)
-            current_length += len(string)
-            if current_length > 1950:
-                break
-        return "\n".join(data_str)
+        # return self.__data
+        data = self.__data
+        data = [["leeches", self.__leeches], ["seeds", self.__seeds], ["дата", self.__year]] + data
+        return data
 
     @property
     def id_torrent(self) -> str:
@@ -90,11 +85,11 @@ class TorrentInfo(ABCTorrentInfo):
         translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
         return text.translate(translation_table)
 
-    @property
-    def full_info(self) -> str:
-        return (f"{self.escape_special_chars_translate(self.__name)}\n\n"
-                f"*leeches:* {self.__leeches}\n*seeds:* {self.__seeds}\n*дата:* {self.__year}\n{self.get_other_data}\n"
-                f"[страница]({self.__url})")
+    # @property
+    # def full_info(self) -> str:
+    #     return (f"{self.escape_special_chars_translate(self.__name)}\n\n"
+    #             f"*leeches:* {self.__leeches}\n*seeds:* {self.__seeds}\n*дата:* {self.__year}\n{self.get_other_data}\n"
+    #             f"[страница]({self.__url})")
 
     @property
     def short_category(self) -> str | None:

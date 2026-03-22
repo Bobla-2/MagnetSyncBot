@@ -1,4 +1,4 @@
-python-telegram-bot==21.10
+python-telegram-bot[socks]==21.10
 bs4==0.0.2
 fuzzywuzzy==0.18.0
 qbittorrent-api==2025.7.0

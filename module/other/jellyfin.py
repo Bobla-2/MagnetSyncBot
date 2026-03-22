@@ -3,9 +3,10 @@ from module.crypto_token import config
 import paramiko
 import re
 import asyncio
-
 from module.crypto_token.config_templ import jellyfin
 from module.logger.logger import SimpleLogger
+import threading
+
 
 
 def singleton(cls):
@@ -34,11 +35,42 @@ class CreaterSymlinkManager:
             return True
         return False
 
-    def create_symlink(self, original_path, custam_name: str, progress_value, id: int | str, category: str) -> None:
-        self.task[str(id)] = asyncio.create_task(self.__start_create_symlink(original_path, custam_name, progress_value, category))
+    # def create_symlink(self, original_path, custam_name: str, progress_value, id: int | str, category: str) -> None:
+    #     SimpleLogger().log("[CreaterSymlinkManager] : self.task[str(id)]")
+    #     self.task[str(id)] = asyncio.create_task(self.__start_create_symlink(original_path, custam_name, progress_value, category))
 
-    async def __start_create_symlink(self, original_path, custam_name: str, progress_value, category: str) -> None:
+    def create_symlink(self, original_path, custam_name, progress_value, id, category):
+        stop_event = threading.Event()
+
+        def runner():
+            try:
+                asyncio.run(
+                    self.__start_create_symlink(
+                        original_path,
+                        custam_name,
+                        progress_value,
+                        category,
+                        stop_event
+                    )
+                )
+            except Exception as e:
+                SimpleLogger().log(f"error: {e}")
+
+        thread = threading.Thread(target=runner, daemon=True)
+
+        self.task[str(id)] = {
+            "thread": thread,
+            "stop_event": stop_event
+        }
+
+        thread.start()
+
+
+    async def __start_create_symlink(self, original_path, custam_name: str, progress_value, category: str, stop_event) -> None:
         while progress_value() < 1.:
+            if stop_event.is_set():
+                print("Остановка задачи")
+                return
             await asyncio.sleep(5)
         await asyncio.sleep(5)
         SimpleLogger().log("[CreaterSymlinkManager] : Генерация симлмнка")
@@ -65,10 +97,11 @@ class CreaterSymlinkManager:
         relative_path = re.sub(r'[:*?"<>|]', '', relative_path)
         self.__generator.create_symlink(relative_path, target_path)
 
-    def stop_task(self, id: str | int):
-        """Останавливаем задачу"""
-        if (tsk := self.task.pop(str(id), None)):  # Удаляем из словаря и отменяем
-            tsk.cancel()
+    def stop_task(self, id):
+        task = self.task.pop(str(id), None)
+
+        if task:
+            task["stop_event"].set()
         else:
             print(f"Задача {id} не найдена!")
 
