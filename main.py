@@ -1,37 +1,28 @@
 from telegram_app import TelegramBot
+from flask_app import app
 from module.crypto_token import config
-import argparse
 import time
 from module.logger.logger import SimpleLogger
-
 import traceback
 
 
-def parse_arguments():
-    parser = argparse.ArgumentParser(description="Bot settings")
-    parser.add_argument("-p", "--proxy", type=str, help="Set the proxy")
-    parser.add_argument("-j", "--jellyfin", type=bool, help="enable generate simlink for jellyfin [True, False]")
-    args = parser.parse_args()
-    if args.proxy:
-        config.proxy = args.proxy
-    if args.jellyfin:
-        config.jellyfin = args.jellyfin
-    SimpleLogger().log(f"[main] : Принят параметр: {args}")
-
-
 if __name__ == '__main__':
-    parse_arguments()
-
-    tg_bot = TelegramBot()
-    SimpleLogger().log("[main] : BOT STARTED")
-    while True:
-        try:
-            SimpleLogger().log("[main] : BOT setup")
-            tg_bot.setup(config.get_token())
-            SimpleLogger().log("[main] : BOT run")
-            tg_bot.run()
-        except Exception as e:
-            SimpleLogger().log(f"[main] : tg_bot.run() ERROR {e}")
-            time.sleep(1)
+    SimpleLogger().log(f"[main] : config.UI_MODE =  {config.UI_MODE.lower()}")
+    if config.UI_MODE.lower() == "web":
+        app.run(host="0.0.0.0", port=8080, debug=True)
+    elif config.UI_MODE.lower() == "tg":
+        tg_bot = TelegramBot()
+        SimpleLogger().log("[main] : BOT STARTED")
+        while True:
+            try:
+                SimpleLogger().log("[main] : BOT setup")
+                tg_bot.setup(config.get_token())
+                SimpleLogger().log("[main] : BOT run")
+                tg_bot.run()
+            except Exception as e:
+                SimpleLogger().log(f"[main] : tg_bot.run() ERROR {e}")
+                time.sleep(1)
+    else:
+        app.run(host="0.0.0.0", port=8080, debug=True)
 
 
