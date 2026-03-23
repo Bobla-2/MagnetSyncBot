@@ -47,7 +47,7 @@ sudo nano ./MagnetSyncBot/module/crypto_token/config.py
 
 **3) Сборка образа и запуск** 
 ```
-docker build -t magnetsyncbot ./MagnetSyncBot/ && cd ./MagnetSyncBot && docker compose up -d
+docker build -t magnetsyncbot ./MagnetSyncBot/ && cd ./MagnetSyncBot && docker compose up -d && cd ../
 ```
 
 
