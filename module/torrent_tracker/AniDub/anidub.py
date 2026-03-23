@@ -90,6 +90,10 @@ class TorrentInfo(ABCTorrentInfo):
                 self.__short_categories = "other"
         return self.__short_categories
 
+    @property
+    def url(self) -> str:
+        return self.__url
+
     @staticmethod
     def escape_special_chars_translate(text: str) -> str:
         special_chars = '_*[~`#=|{}\\'
@@ -149,7 +153,7 @@ class AniDub(ABCTorrenTracker):
         if not table:
             SimpleLogger().log("[AniDub] : No torrents found.")
             return [TorrentInfo(category="anime",
-                                name="Найдено 0 аниме",
+                                name="Ошибка поиска. Попробуйте снова",
                                 )]
         results = []
         for block in soup.select("div.search_post"):

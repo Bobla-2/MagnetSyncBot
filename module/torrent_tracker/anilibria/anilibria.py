@@ -5,14 +5,14 @@ from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo, ABCTorrenTrac
 import module.crypto_token.config as config
 from module.logger.logger import SimpleLogger
 
-def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
+def _retries_retry_operation(func, *args, retries: int = 3, **kwargs):
     for attempt in range(retries):
         try:
             return func(*args, **kwargs)
         except Exception as e:
             print(f"Попытка {attempt + 1} из {retries}. Ошибка сети: ПОДКЛЮЧЕНИЯ Anilibria {e}.")
             time.sleep(1)
-    print(f"Не удалось загрузить 1337 после {retries} попыток.")
+    print(f"Не удалось загрузить anilibria после {retries} попыток.")
     return None
 
 
@@ -42,8 +42,11 @@ class TorrentInfo(ABCTorrentInfo):
         self.__name = name
         self.__year = year
         self.__url = url
-        self.__size = int(size) / 1_048_576
-        self.__size = f'{round(self.__size, 2)} MB' if self.__size < 800. else f'{round(self.__size / 1024, 2)} GB'
+        if size:
+            self.__size = int(size) / 1_048_576
+            self.__size = f'{round(self.__size, 2)} MB' if self.__size < 800. else f'{round(self.__size / 1024, 2)} GB'
+        else:
+            self.__size = "NA"
         self.__seeds = seeds
         self.__leeches = leeches
         self.__id_torrent = None
@@ -92,6 +95,10 @@ class TorrentInfo(ABCTorrentInfo):
     #             f"[страница]({self.__url})")
 
     @property
+    def url(self) -> str:
+        return self.__url
+
+    @property
     def short_category(self) -> str | None:
         if not self.__short_categories:
             for me in config.MEDIA_EXTENSIONS:
@@ -120,15 +127,15 @@ def singleton(cls):
 @singleton
 class Anilibria(ABCTorrenTracker):
     '''
-    Класс для взаимодействия с  1337 и выполнения поиска торрентов.
+    Класс для взаимодействия с   и выполнения поиска торрентов.
 
     Методы:
     -------
     __init__():
-        Выполняет авторизацию на 1337
+        Выполняет авторизацию на
 
     get_search_list(search_request: str, page_deepth: int = 2) -> list[TorrentInfo]:
-        Выполняет поиск торрентов на 1337 по заданному запросу. Возвращает список объектов `TorrentInfo`.
+        Выполняет поиск торрентов на  по заданному запросу. Возвращает список объектов `TorrentInfo`.
     '''
 
     def __init__(self, proxy_=None):
@@ -140,6 +147,7 @@ class Anilibria(ABCTorrenTracker):
                           'https': proxy_ or config.proxy}
 
     def __get_search_list(self, query: str, search_url: str, torrent_url: str) -> list[ABCTorrentInfo]:
+        SimpleLogger().log(f"[Anilibria] : __get_search_list = {query}")
         search_url = search_url.format(query)
         self.logger = SimpleLogger()
         headers = {
@@ -164,9 +172,8 @@ class Anilibria(ABCTorrenTracker):
                     torrent_info = response.json()
                 else:
                     torrent_info = {"magnet": None}
-                if len(torrent_info) == 0:
-                    torrent_list.append(TorrentInfo(name="Найдено 0 аниме"))
-                    return torrent_list
+
+
                 for tr_inf in torrent_info:
 
                     all_data = [["Вид", tr_inf["type"]["value"]],
@@ -188,6 +195,9 @@ class Anilibria(ABCTorrenTracker):
                                                     data=all_data
                                                     ))
 
+        if len(torrent_list) == 0:
+            torrent_list.append(TorrentInfo(name="Ошибка поиска. Попробуйте снова"))
+            return torrent_list
         return torrent_list
 
     def get_tracker_list(self, search_request: str) -> list[ABCTorrentInfo]:

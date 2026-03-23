@@ -211,6 +211,7 @@ def api_search():
             client, client_id, is_new = get_client_by_request()
             client.search_torrent(query, tracker)
             client.web_prepare_search_meta()
+
             items = client.web_get_search_results()
             jl_name = client.get_default_name_jellyfin()
 
@@ -225,9 +226,18 @@ def api_search():
         }, client_id, is_new)
 
     except Exception as e:
+        with _client_lock:
+            client, client_id, is_new = get_client_by_request()
         _last_error = str(e)
         logger.log(f"[WEB] api_search: {e}")
-        return jsonify({"ok": False, "error": "Ошибка поиска"}), 500
+        return make_json_response({
+            "ok": True,
+            "items": [{"name" : f"Произошла критическая ошибка: {e}",
+                       "size": "NA", "category": "NA", "num" : "0"}],
+            "default_name_jellyfin": "",
+            "count": 1,
+        }, client_id, is_new)
+        # return jsonify({"ok": False, "error": "Ошибка поиска"}), 500
 
 
 @app.get("/api/torrent/<int:num>/info")
@@ -246,7 +256,7 @@ def api_torrent_info(num: int):
 
         return make_json_response({
             "ok": True,
-            "name": client.list_torrent_info[num].name,
+            "name": client.list_torrent_info[num].name[:150],
             "info": info,
             "url": client.list_torrent_info[num].url,
             "default_name_jellyfin": jl_name,

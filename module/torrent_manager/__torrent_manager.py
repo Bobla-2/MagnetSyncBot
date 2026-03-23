@@ -112,7 +112,7 @@ class TransmissionManager(TorrentManager):
         out_list = []
         torrents_sorted = sorted(torrents, key=lambda t: t.added_date, reverse=True)
         for num, torrent in enumerate(torrents_sorted):
-            out_list.append(ActiveTorrentsInfo(num, torrent.name, torrent.status, f"{torrent.progress:.1f}%", torrent.id))
+            out_list.append(ActiveTorrentsInfo(num, torrent.name, f"{torrent.status}, {torrent.ratio}", f"{torrent.progress:.1f}%", torrent.id))
         return out_list
 
     def delete_torrent(self, id: int):

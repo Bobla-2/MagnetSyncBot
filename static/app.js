@@ -4,6 +4,7 @@
     let deleteNum = null;
     let deleteName = "";
     let currentMobilePanel = "results";
+    let lastIsMobileView = window.innerWidth <= 900;
 
     function setStatus(text) {
         document.getElementById("statusBar").textContent = text || "";
@@ -59,6 +60,7 @@
 
         if (!items.length) {
             root.innerHTML = '<div class="muted">Ничего не найдено</div>';
+            updateMobilePanelsHeight();
             return;
         }
 
@@ -73,6 +75,7 @@
                 </div>
             </div>
         `).join("");
+        updateMobilePanelsHeight();
     }
 
     function renderDownloads(items) {
@@ -95,6 +98,7 @@
             </div>
         </div>
     `).join("");
+    updateMobilePanelsHeight();
 }
 
 
@@ -330,34 +334,124 @@
         return window.innerWidth <= 900;
     }
 
+    function setPanelState(panel, state) {
+    panel.classList.remove(
+        "panel-mobile-active",
+        "panel-mobile-left",
+        "panel-mobile-right"
+    );
+    panel.classList.add(state);
+}
+
+function updateMobilePanelsHeight() {
+    if (!isMobileView()) {
+        const wrap = document.querySelector(".mobile-panels");
+        if (wrap) {
+            wrap.style.height = "";
+        }
+        return;
+    }
+
+    const wrap = document.querySelector(".mobile-panels");
+    const activePanel = document.querySelector(".panel-mobile-active");
+
+    if (wrap && activePanel) {
+        wrap.style.height = activePanel.offsetHeight + "px";
+    }
+    }
+
     function showMobilePanel(name) {
         const panelResults = document.getElementById("panelResults");
         const panelDownloads = document.getElementById("panelDownloads");
         const tabResults = document.getElementById("tabResults");
         const tabDownloads = document.getElementById("tabDownloads");
-        currentMobilePanel = name;
 
-        if (!isMobileView()) {
-            panelResults.classList.remove("hidden-mobile");
-            panelDownloads.classList.remove("hidden-mobile");
-            tabResults.classList.remove("active");
-            tabDownloads.classList.remove("active");
+        if (!panelResults || !panelDownloads || !tabResults || !tabDownloads) {
             return;
         }
 
+        currentMobilePanel = name;
+
+        if (!isMobileView()) {
+            panelResults.classList.remove(
+                "panel-mobile-active",
+                "panel-mobile-left",
+                "panel-mobile-right"
+            );
+            panelDownloads.classList.remove(
+                "panel-mobile-active",
+                "panel-mobile-left",
+                "panel-mobile-right"
+            );
+
+            tabResults.classList.remove("active");
+            tabDownloads.classList.remove("active");
+
+            updateMobilePanelsHeight();
+            return;
+        }
 
         if (name === "downloads") {
-            panelResults.classList.add("hidden-mobile");
-            panelDownloads.classList.remove("hidden-mobile");
+            setPanelState(panelResults, "panel-mobile-left");
+            setPanelState(panelDownloads, "panel-mobile-active");
             tabResults.classList.remove("active");
             tabDownloads.classList.add("active");
         } else {
-            panelResults.classList.remove("hidden-mobile");
-            panelDownloads.classList.add("hidden-mobile");
+            setPanelState(panelResults, "panel-mobile-active");
+            setPanelState(panelDownloads, "panel-mobile-right");
             tabResults.classList.add("active");
             tabDownloads.classList.remove("active");
         }
+
+        setTimeout(updateMobilePanelsHeight, 260);
     }
+
+   function enableSwipeSwitch() {
+    const area = document.querySelector(".mobile-panels");
+    if (!area) {
+        return;
+    }
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    area.addEventListener("touchstart", function (e) {
+        if (!isMobileView()) {
+            return;
+        }
+
+        const t = e.changedTouches[0];
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+    }, { passive: true });
+
+    area.addEventListener("touchend", function (e) {
+        if (!isMobileView()) {
+            return;
+        }
+
+        const t = e.changedTouches[0];
+        const touchEndX = t.clientX;
+        const touchEndY = t.clientY;
+
+        const dx = touchEndX - touchStartX;
+        const dy = touchEndY - touchStartY;
+
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+
+        if (absDx < 50 || absDx < absDy) {
+            return;
+        }
+
+        if (dx < 0 && currentMobilePanel !== "downloads") {
+            showMobilePanel("downloads");
+        } else if (dx > 0 && currentMobilePanel !== "results") {
+            showMobilePanel("results");
+        }
+    }, { passive: true });
+}
+
 
 //   авто скрытие клавиатуры
    document.getElementById("searchQuery").addEventListener("keyup", function (e) {
@@ -376,18 +470,26 @@
         showMobilePanel("downloads");
     });
 
-    window.addEventListener("resize", function () {
-        showMobilePanel(currentMobilePanel);
+      window.addEventListener("resize", function () {
+        const nowIsMobileView = isMobileView();
+
+        if (nowIsMobileView !== lastIsMobileView) {
+            showMobilePanel(currentMobilePanel);
+            lastIsMobileView = nowIsMobileView;
+        }
+
+        updateJlButton();
+        updateMobilePanelsHeight();
     });
 
     document.getElementById("btnSearch").addEventListener("click", searchTorrents);
     document.getElementById("btnLastError").addEventListener("click", loadLastError);
 
-    document.getElementById("searchQuery").addEventListener("keydown", function (e) {
-        if (e.key === "Enter") {
-            searchTorrents();
-        }
-    });
+//    document.getElementById("searchQuery").addEventListener("keydown", function (e) {
+//        if (e.key === "Enter") {
+//            searchTorrents();
+//        }
+//    });
 
     document.getElementById("dialogClose").addEventListener("click", function () {
         document.getElementById("infoDialog").close();
@@ -415,8 +517,9 @@
     });
 
 
-
-    showMobilePanel("results");
+    showMobilePanel("results")
+    enableSwipeSwitch()
+    updateMobilePanelsHeight();
 
     loadDownloads();
     loadLastSearchResults();
