@@ -4,15 +4,17 @@ import time
 from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo, ABCTorrenTracker
 import module.crypto_token.config as config
 from module.logger.logger import SimpleLogger
+from module.other.singleton import singleton
+
 
 def _retries_retry_operation(func, *args, retries: int = 3, **kwargs):
     for attempt in range(retries):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            print(f"Попытка {attempt + 1} из {retries}. Ошибка сети: ПОДКЛЮЧЕНИЯ Anilibria {e}.")
+            SimpleLogger().log(f"[_retries_retry_operation] : Попытка {attempt + 1} из {retries}. Ошибка сети: ПОДКЛЮЧЕНИЯ Anilibria {e}.")
             time.sleep(1)
-    print(f"Не удалось загрузить anilibria после {retries} попыток.")
+    SimpleLogger().log(f"[_retries_retry_operation] : Не удалось загрузить anilibria после {retries} попыток.")
     return None
 
 
@@ -114,16 +116,6 @@ class TorrentInfo(ABCTorrentInfo):
         return self.__short_categories
 
 
-def singleton(cls):
-    instances = {}
-
-    def get_instance(*args, **kwargs):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
-    return get_instance
-
-
 @singleton
 class Anilibria(ABCTorrenTracker):
     '''
@@ -155,7 +147,7 @@ class Anilibria(ABCTorrenTracker):
             "Accept": "application/json"
         }
 
-        response = requests.get(search_url, headers=headers, proxies=self.__proxies)
+        response = requests.get(search_url, headers=headers, proxies=self.__proxies, timeout=(5, 10))
         if response.status_code != 200:
             self.logger.log(f"[Anilibria] : Error fetching the page: {response.status_code}")
             return []
@@ -167,7 +159,7 @@ class Anilibria(ABCTorrenTracker):
             for dt in data:
                 id = dt["id"]
                 torrent_url_s = torrent_url.format(id)
-                response = requests.get(torrent_url_s, headers=headers, proxies=self.__proxies)
+                response = requests.get(torrent_url_s, headers=headers, proxies=self.__proxies, timeout=(5, 10))
                 if response.status_code == 200:
                     torrent_info = response.json()
                 else:

@@ -1,81 +1,79 @@
-from cryptography.fernet import Fernet
 import os
 
+######################### - UI - #########################
+UI_MODE = "web"   # web / tg
 
 ######################### - proxy - #########################
-proxy = 'http://127.0.0.1:10809'
+proxy = 'http://127.0.0.1:10808'
 
-# ссылка на 1337х
 X1337_BASE_URL = 'https://1337x.to'
+ANILIBRIA_BASE_URL = 'https://aniliberty.top'
+ANIDUB_BASE_URL = 'https://tr.anidub.com'
+RUTRACKER_FORUM_URL = 'https://rutracker.org/forum'
+TRACKERS = ["Rutracker", "anidub", "anilibria"] # "1337x"
 ######################### - torrent client default - #########################
-tornt_cli_host = "192.168.1.1"
+tornt_cli_host = "127.0.0.1"
 tornt_cli_port = 9091
-tornt_cli_type = "transmission"
-tornt_cli_login = "log"
-tornt_cli_pass = "pass"
+tornt_cli_type = "transmission"  # можно transmission/qbittorrent
+tornt_cli_login = "transmission"
+tornt_cli_pass = "transmission"
 
+TORRENT_FOLDER_OTHER = "/downloads/1_other"       # абсолютный путь, в куда качаются торренты
+TORRENT_FOLDER_SOFT = "/downloads/1_soft"
+TORRENT_FOLDER_GAME = "/downloads/1_game"
+TORRENT_FOLDER_CINEMA = "/downloads/1_cinema"
+TORRENT_FOLDER_ANIME = "/downloads/1_anime"
+TORRENT_FOLDER_MUSIC = "/downloads/1_music"
 
-######################### - logining bot - #########################
-# пользовотелей из WHITE_LIST пускает без пароля
-enable_pass_tg = True
+######################### - telegram - #########################
+tg_token = "xxxxxxxxxxx"
+
 # пароль для входа с настройками по умолчанию (/start {pass})
-pass_tg = "1234"
+ENABLE_PASS_TG = True
+PASS_TG = "1234567"
 
+# пользовотелей из WHITE_LIST пускает без пароля
 ENABLE_WHITE_LIST = True
-WHITE_LIST = []   # id telegram, бот для id -> @idchatwebhelbiebot
-
-
-######################### - token - #########################
-def get_token() -> str:
-    return "None"
-
-
+WHITE_LIST = []       # id telegram
 ######################### - rutecker - #########################
-def get_pass_rutreker() -> str:
-    return "None"
-
-def get_login_rutreker() -> str:
-    return "None"
-
-######################### - kinopoisk - #########################
-ENABLE_KINOPOISK = False            # Включить геренацию подсказок во время поиска от кинопоиска
-API_TOKEN_KINOPOISK = 'TOKEN'       # ОЮЯЗАТЕЛЬНЫЙ токен если кинопоиск включен
-
+login_rutreker = "login"
+pass_rutreker = "pass"
+######################### - poiskkino - #########################
+ENABLE_KINOPOISK = True
+KINOPOISK_BASE_URL = "https://api.poiskkino.dev/v1.4/movie/search"
+API_TOKEN_KINOPOISK = 'xxxxxxxx'
 
 ######################### - jellyfin - #########################
-jellyfin = True
+JELLYFIN_ENABLE = True
 # False - создание симлинков для jellyfin не работает
-# True  - работает только для пользователя вошедшего без кастомного торрент клиента
 
-TORRENT_FOLDER = "/download/"       # абсолютный путь, в которую качаются торренты
-JELLYFIN_PATH = "/jellyfin/"        # абсолютный путь, откуда jellyfin берет медиа
+JELLYFIN_FOLDER_OTHER = "/DLNA/1_other"
+JELLYFIN_FOLDER_SOFT = "/DLNA/1_soft"
+JELLYFIN_FOLDER_GAME = "/DLNA/1_game"
+JELLYFIN_FOLDER_CINEMA = "/DLNA/1_cinema"
+JELLYFIN_FOLDER_ANIME = "/DLNA/1_anime"
+JELLYFIN_FOLDER_MUSIC = "/DLNA/1_music"
 
-SYMLINK_IS_SSH = True               # True, если симлинки надо создавать на удаленном сервере
-SYMLINK_HOST = tornt_cli_host       # хост этого сервера
-SYMLINK_PORT = 22                   # порт
-SYMLINK_LOGIN = 'log'               # логин
-SYMLINK_PASS = 'pass'                # и пароль
+SYMLINK_IS_SSH = True     # так как бот в докере, лучше использовать всегда ssh
+SYMLINK_HOST = tornt_cli_host
+SYMLINK_PORT = 22
+SYMLINK_LOGIN = 'login'
+SYMLINK_PASS = 'pass'
+
+########################## Дальше только настройки сортировки #######################################
+################################################################################
+################################################################################
+################################################################################
+
+
 # настройки сортировщика
 # он должен состоять из [[список категорий], относительный путь куда симлинк, тип сортировки]
 # тип сортировки может быть: "==" -> категория должна совпадать; "in" -> категория должна содержать ключевое слово
-#!!!!!!!!! СОРТИРОВЩИК ПЕРЕЕХАЛ В САМЫЙ НИЗ!!!!!!!!!!!
-
-################################################################################
-################################################################################
-################################################################################
-
-def __decrypt_data(key: bytes, data: bytes) -> str:
-    """Расшифровывает токен."""
-    try:
-        cipher = Fernet(key)
-        token = cipher.decrypt(data).decode()
-        return token
-    except Exception as e:
-        print(f"Ошибка при расшифровке токена: {e}")
-        return None
 
 
-categories_сinema_rutr = [
+categories_cinema_rutr = [
+    "UHD Video",
+    "Видео",
     "Кино СССР",
     "Детские отечественные фильмы",
     "Авторские дебюты",
@@ -88,6 +86,7 @@ categories_сinema_rutr = [
     "Фильмы 2011-2015",
     "Фильмы 2016-2020",
     "Фильмы 2021-2024",
+    "Фильмы 2021-2025",
     "Фильмы 2025",
     "Фильмы ближнего зарубежья",
     "Азиатские фильмы",
@@ -120,6 +119,7 @@ categories_сinema_rutr = [
     "Классика мирового кинематографа (UHD Video)",
     "Зарубежное кино (UHD Video)",
     "Наше кино (UHD Video)",
+    "Наше кино",
     "Азиатские фильмы (UHD Video)",
     "Арт-хаус и авторское кино (UHD Video)",
     "3D Кинофильмы",
@@ -341,8 +341,9 @@ categories_soft_rutr = [
     "Плагины для программ компании Adobe (Mac OS)"
 ]
 
+categories_anime_anilibria = ["anime"]
 
-categories_сinema_x1337 = ["flaticon-documentary", "flaticon-3d", "flaticon-divx", "flaticon-divx", "flaticon-video-dual-sound", "flaticon-dvd", "flaticon-h264", "flaticon-hd", "flaticon-hd", "flaticon-mp4", "flaticon-svcd", "flaticon-hd"]
+categories_cinema_x1337 = ["flaticon-documentary", "flaticon-3d", "flaticon-divx", "flaticon-divx", "flaticon-video-dual-sound", "flaticon-dvd", "flaticon-h264", "flaticon-hd", "flaticon-hd", "flaticon-mp4", "flaticon-svcd", "flaticon-hd"]
 
 categories_anime_x1337 = ["flaticon-anime", "flaticon-ninja-portrait", "flaticon-video-dual-sound", "flaticon-divx", "flaticon-divx", "flaticon-divx"]
 
@@ -354,28 +355,39 @@ categories_game_x1337 = ["flaticon-nds", "flaticon-dreamcast", "flaticon-nds", "
 
 
 MEDIA_EXTENSIONS = [
-    [['lossless', 'lossy'],
-     "1_music/", "in", "music"],
+    [['lossless', 'lossy', 'Hi-Res stereo', 'многоканальная музыка', 'оцифровки', 'DVD Видео', 'HD Видео', '(Видео)'],
+     TORRENT_FOLDER_MUSIC, "in", "music", JELLYFIN_FOLDER_MUSIC],
+
+    [['Апмиксы-Upmixes', 'Конверсии Blu-Ray, ADVD и DVD-Audio', 'Конверсии SACD', 'Конверсии Quadraphonic'],
+     TORRENT_FOLDER_MUSIC, "==", "music", JELLYFIN_FOLDER_MUSIC],
 
     [categories_music_x1337,
-     "1_music/", "==", "music"],
+     TORRENT_FOLDER_MUSIC, "==", "music", JELLYFIN_FOLDER_MUSIC],
 
-    [categories_anime_x1337 + ['Аниме (HD Video)', 'Аниме (SD Video)', 'Аниме (DVD Video)', 'Аниме (QC подраздел)', 'Аниме (плеерный подраздел)', 'Японские мультфильмы'],
-     "1_anime/", "==", "anime"],
+    [categories_anime_x1337 + categories_anime_anilibria + ['Аниме (HD Video)', 'Аниме (SD Video)', 'Аниме (DVD Video)', 'Аниме (QC подраздел)', 'Аниме (плеерный подраздел)', 'Японские мультфильмы'],
+     TORRENT_FOLDER_ANIME, "==", "anime", JELLYFIN_FOLDER_ANIME],
 
-    [categories_сinema_rutr + categories_сinema_x1337,
-     "1_cinema/", "==", "cinema"],
+    [categories_cinema_rutr + categories_cinema_x1337,
+     TORRENT_FOLDER_CINEMA, "==", "cinema", JELLYFIN_FOLDER_CINEMA],
+
+    [['фильмы', 'кино', 'мультфильмы', 'Фильмы', 'Мультсериалы', 'кинематографа'],
+     TORRENT_FOLDER_CINEMA, "in", "cinema", JELLYFIN_FOLDER_CINEMA],
 
     [categories_game_rutr + categories_game_x1337,
-     "1_soft/game/", "==", "game"],
+     TORRENT_FOLDER_GAME, "==", "game", JELLYFIN_FOLDER_GAME],
 
     [categories_soft_rutr + categories_soft_x1337,
-     "1_soft/soft/", "==", "soft"],
+     TORRENT_FOLDER_SOFT, "==", "soft", JELLYFIN_FOLDER_SOFT],
 
-    [[''],
-     "1_other/", "in", "other"],
+    [[],
+     TORRENT_FOLDER_OTHER, "in", "other", JELLYFIN_FOLDER_OTHER],
     ]
 
+log_file_encoding = "cp1251" if os.name == "nt" else "utf-8"
+
 if os.name == 'nt':
-    print("os.name == 'nt' -> JELLYFIN_ENABLE = False")
-    JELLYFIN_ENABLE = False
+    if SYMLINK_HOST not in ["127.0.0.1", "localhost"] and SYMLINK_IS_SSH:
+       pass
+    else:
+        print("os.name == 'nt' -> JELLYFIN_ENABLE = False")
+        JELLYFIN_ENABLE = False

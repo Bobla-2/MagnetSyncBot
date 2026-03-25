@@ -2,21 +2,13 @@ import os
 from module.crypto_token import config
 import paramiko
 import re
-import asyncio
-from module.crypto_token.config_templ import jellyfin
-from module.logger.logger import SimpleLogger
+import time
 import threading
+from module.logger.logger import SimpleLogger
+from module.other.singleton import singleton
 
 
-
-def singleton(cls):
-    instances = {}
-
-    def get_instance(*args, **kwargs):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
-    return get_instance
+task_lock = threading.Lock()
 
 
 @singleton
@@ -44,35 +36,37 @@ class CreaterSymlinkManager:
 
         def runner():
             try:
-                asyncio.run(
-                    self.__start_create_symlink(
-                        original_path,
-                        custam_name,
-                        progress_value,
-                        category,
-                        stop_event
-                    )
+                self.__start_create_symlink(
+                    original_path,
+                    custam_name,
+                    progress_value,
+                    category,
+                    stop_event
                 )
             except Exception as e:
-                SimpleLogger().log(f"error: {e}")
+                SimpleLogger().log(f"[Symlink] error: {e}")
+            finally:
+                with task_lock:
+                    self.task.pop(str(id), None)
+                SimpleLogger().log(f"[Symlink] task {id} finished")
 
         thread = threading.Thread(target=runner, daemon=True)
-
-        self.task[str(id)] = {
-            "thread": thread,
-            "stop_event": stop_event
-        }
+        with task_lock:
+            self.task[str(id)] = {
+                "thread": thread,
+                "stop_event": stop_event
+            }
 
         thread.start()
 
 
-    async def __start_create_symlink(self, original_path, custam_name: str, progress_value, category: str, stop_event) -> None:
+    def __start_create_symlink(self, original_path, custam_name: str, progress_value, category: str, stop_event) -> None:
         while progress_value() < 1.:
             if stop_event.is_set():
-                print("Остановка задачи")
+                SimpleLogger().log("[CreaterSymlinkManager] : Остановка задачи")
                 return
-            await asyncio.sleep(5)
-        await asyncio.sleep(5)
+            time.sleep(5)
+        time.sleep(5)
         SimpleLogger().log("[CreaterSymlinkManager] : Генерация симлмнка")
         original_path = original_path()
         path, orig_name = original_path.rsplit("/", 1)
@@ -98,8 +92,8 @@ class CreaterSymlinkManager:
         self.__generator.create_symlink(relative_path, target_path)
 
     def stop_task(self, id):
-        task = self.task.pop(str(id), None)
-
+        with task_lock:
+            task = self.task.get(str(id))
         if task:
             task["stop_event"].set()
         else:

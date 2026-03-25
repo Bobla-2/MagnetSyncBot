@@ -2,13 +2,14 @@ import requests
 from bs4 import BeautifulSoup
 from module.torrent_tracker.rutracker.rutracker_api.main import RutrackerApi
 import time
-from module.crypto_token.config import get_pass_rutreker, get_login_rutreker, proxy
 import module.crypto_token.config as config
 from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo, ABCTorrenTracker
 from module.logger.logger import SimpleLogger
 import bencodepy
 import hashlib
 import urllib.parse
+from module.other.singleton import singleton
+from threading import Lock
 
 
 def _retries_retry_operation(func, *args, retries: int = 2, **kwargs):
@@ -104,13 +105,6 @@ class TorrentInfo(ABCTorrentInfo):
     def url(self) -> str:
         return self.__url
 
-def singleton(cls):
-    instances = {}
-    def get_instance(*args, **kwargs):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
-    return get_instance
 
 
 @singleton
@@ -122,10 +116,12 @@ class Rutracker(ABCTorrenTracker):
     в случае неудачи возвращает список с TorrentInfo содержащим сообщение об ошибке в поле 'name'
     """
     def __init__(self):
+        if config.UI_MODE.lower() == "web":
+            self.lock = Lock()
         SimpleLogger().log("[Rutracker] : start init")
         self.__rutracker = _retries_retry_operation(_Rutracker,
-                                                    username=get_login_rutreker(),
-                                                    password=get_pass_rutreker(),
+                                                    username=config.login_rutreker,
+                                                    password=config.pass_rutreker,
                                                     proxy=config.proxy)
 
         if not self.__rutracker:
@@ -135,15 +131,28 @@ class Rutracker(ABCTorrenTracker):
 
 
     def get_tracker_list(self, search_request: str) -> list[ABCTorrentInfo]:
-        if self.__rutracker:
-            list_ = _retries_retry_operation(self.__rutracker.get_search_list, search_request, 1)
-            if list_:
-                return list_
-            else:
-                return [TorrentInfo(name="Ошибка поиска. Попробуйте снова")]
+        if config.UI_MODE.lower() == "web":
+            with self.lock:
+                if self.__rutracker:
+                    list_ = _retries_retry_operation(self.__rutracker.get_search_list, search_request, 1)
+                    if list_:
+                        return list_
+                    else:
+                        return [TorrentInfo(name="Ошибка поиска. Попробуйте снова")]
+                else:
+                    self.__init__()
+                    return [TorrentInfo(name="Ошибка подключений к рутрекеру. Попробуйте ввести запрос заново")]
         else:
-            self.__init__()
-            return [TorrentInfo(name="Ошибка подключений к рутрекеру. Попробуйте ввести запрос заново")]
+            if self.__rutracker:
+                list_ = _retries_retry_operation(self.__rutracker.get_search_list, search_request, 1)
+                if list_:
+                    return list_
+                else:
+                    return [TorrentInfo(name="Ошибка поиска. Попробуйте снова")]
+            else:
+                self.__init__()
+                return [TorrentInfo(name="Ошибка подключений к рутрекеру. Попробуйте ввести запрос заново")]
+
 
 
 class _Rutracker:
@@ -205,7 +214,7 @@ class RutrackerParserPage:
             self.__soup = _retries_retry_operation(self.__loader, url=self.url, proxies=proxies)
 
     def __loader(self, url: str, proxies):
-        response = requests.get(url, proxies=proxies)
+        response = requests.get(url, proxies=proxies, timeout=(5, 10))
         response.raise_for_status()
         page_content = response.text
         return BeautifulSoup(page_content, "html.parser")

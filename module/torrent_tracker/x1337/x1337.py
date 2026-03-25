@@ -4,6 +4,8 @@ import time
 from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo, ABCTorrenTracker
 import module.crypto_token.config as config
 from module.logger.logger import SimpleLogger
+from module.other.singleton import singleton
+
 
 def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
     for attempt in range(retries):
@@ -105,17 +107,6 @@ class TorrentInfo(ABCTorrentInfo):
         return self.__url
 
 
-def singleton(cls):
-    instances = {}
-
-    def get_instance(*args, **kwargs):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
-    return get_instance
-
-
-@singleton
 class X1337(ABCTorrenTracker):
     '''
     Класс для взаимодействия с  1337 и выполнения поиска торрентов.
@@ -145,7 +136,7 @@ class X1337(ABCTorrenTracker):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
 
-        response = requests.get(search_url, headers=headers, proxies=self.__proxies)
+        response = requests.get(search_url, headers=headers, proxies=self.__proxies, timeout=(5, 10))
         if response.status_code != 200:
             self.logger.log(f"[X1337] : Error fetching the page: {response.status_code}")
             return []
@@ -211,7 +202,7 @@ class _1337ParserPage:
             self.__soup = _retries_retry_operation(self.__loader, url=self.url, proxies=proxies)
 
     def __loader(self, url: str, proxies):
-        response = requests.get(url, proxies=proxies)
+        response = requests.get(url, proxies=proxies, timeout=(5, 10))
         response.raise_for_status()
         page_content = response.text
         return BeautifulSoup(page_content, "html.parser")

@@ -10,17 +10,7 @@ from module.logger.logger import SimpleLogger
 from ..ABC import ABCDatabaseSearch
 import re
 from datetime import datetime, timedelta
-
-
-
-def singleton(cls):
-    instances = {}
-
-    def get_instance(*args, **kwargs):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
-    return get_instance
+from module.other.singleton import singleton
 
 
 @singleton
@@ -104,9 +94,9 @@ class AnimeDatabaseLoader:
     def load_or_parse_database(self):
         """Load the anime list from cache if it exists; otherwise, parse the XML file and create the cache."""
         if not os.path.exists(self.__cache_file_path):
-            print("Cache not found. Parsing XML file...")
+            SimpleLogger().log(f"[AnimeDatabaseLoader] : Cache not found. Parsing XML file...")
             if not self.__update_cache_from_xml():
-                print("XML file parse error, downloading...")
+                SimpleLogger().log(f"[AnimeDatabaseLoader] : XML file parse error, downloading...")
                 self.__download_database_xml()
                 self.__update_cache_from_xml()
 
@@ -126,13 +116,13 @@ class AnimeDatabaseLoader:
                     return datetime.strptime(date_str, '%a %b %d %H:%M:%S %Y')
                 return None
         except Exception as e:
-            print(f"Ошибка при обработке XML: {e}")
+            SimpleLogger().log(f"[AnimeDatabaseLoader] : Ошибка при обработке XML: {e}")
             return None
 
     def __parse_xml_file(self):
         """Parse the XML file and return a list of anime."""
         if not os.path.exists(self.__xml_file_path):
-            print(f"The XML file does not exist: {self.__xml_file_path}")
+            SimpleLogger().log(f"[AnimeDatabaseLoader] : The XML file does not exist: {self.__xml_file_path}")
             return None
 
         anime_list = []
@@ -167,33 +157,33 @@ class AnimeDatabaseLoader:
 
     def __download_database_xml(self, url='http://anidb.net/api/anime-titles.xml.gz'):
         """Update the database by downloading the XML file, extracting it, and updating the cache."""
-        print("Downloading the XML file...")
+        SimpleLogger().log(f"[AnimeDatabaseLoader] : Downloading the XML file...")
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         try:
             proxies = {'http': proxy,
                        'https': proxy}
-            response = requests.get(url, headers=headers, proxies=proxies)
+            response = requests.get(url, headers=headers, proxies=proxies, timeout=(10, 20))
             if response.status_code == 200:
                 with open(self.__gz_file_path, 'wb') as f:
                     f.write(response.content)
-                print("Download complete. Extracting the XML file...")
+                SimpleLogger().log(f"[AnimeDatabaseLoader] : Download complete. Extracting the XML file...")
 
                 with gzip.open(self.__gz_file_path, 'rb') as f_in:
                     with open(self.__xml_file_path, 'wb') as f_out:
                         f_out.write(f_in.read())
             else:
-                print(f"Failed to download file. Status code: {response.status_code}")
+                SimpleLogger().log(f"[AnimeDatabaseLoader] : Failed to download file. Status code: {response.status_code}")
 
         except requests.RequestException as e:
-            print(f"An error occurred: {e}")
+            SimpleLogger().log(f"[AnimeDatabaseLoader] : An error occurred: {e}")
 
 
 if __name__ == '__main__':
     db = AnimeDatabaseSearch()
     search_title = "Crest the"
     _, anime_id = db.find_id_titles_id_by_request(search_title)
-    print(f"Anime ID for title '{search_title}':", anime_id)
-    print(db.get_titles_by_id(anime_id))
+    SimpleLogger().log(f"[AnimeDatabase] : Anime ID for title '{search_title}':", anime_id)
+    SimpleLogger().log(f"[AnimeDatabase] : db.get_titles_by_id(anime_id)")
 

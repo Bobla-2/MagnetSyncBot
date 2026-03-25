@@ -34,7 +34,7 @@ class Client:
     def __init__(self, torrent_settings: list = None):
         self.user_states: ClientStatus = ClientStatus()
         self.search_title = ""
-        SimpleLogger().log("[BotClient] : init")
+        SimpleLogger().log("[Client] : init")
 
         self.tracker_type = config.TRACKERS[0]
         self.old_ready_msg_id: int | None = None
@@ -42,7 +42,7 @@ class Client:
         self.tracker = TorrentTracker()
         self.x1337 = None
         self.torrent_client = None
-        SimpleLogger().log("[BotClient] : TorrentTracker start")
+        SimpleLogger().log("[Client] : TorrentTracker start")
 
         db = []
         if config.ENABLE_KINOPOISK:
@@ -50,7 +50,7 @@ class Client:
         db.append((AnimeDatabaseSearch(), 'anime'))
         self.db_manager = ManagerDB(db)
 
-        SimpleLogger().log("[BotClient] : ManagerDB start")
+        SimpleLogger().log("[Client] : ManagerDB start")
 
         if torrent_settings:
             try:
@@ -72,7 +72,7 @@ class Client:
                 username=config.tornt_cli_login,
                 password=config.tornt_cli_pass,
             )
-        SimpleLogger().log("[BotClient] : torrent_client start")
+        SimpleLogger().log("[Client] : torrent_client start")
         self.last_search_title = ""
         self.list_torrent_info: List[ABCTorrentInfo] = []
         self.list_active_torrent: List[ActiveTorrentsInfo] = []
@@ -82,8 +82,8 @@ class Client:
         self.creater_link = None
         if config.JELLYFIN_ENABLE and torrent_settings == None:
             self.creater_link = CreaterSymlinkManager()
-            SimpleLogger().log("[BotClient] : CreaterSymlinkManager start")
-        SimpleLogger().log("[BotClient] : ready")
+            SimpleLogger().log("[Client] : CreaterSymlinkManager start")
+        SimpleLogger().log("[Client] : ready")
 
     def search_torrent(self, search_title: str, tracker_type: str) -> None:
         self.list_torrent_info = self.tracker.get_tracker_list(search_title, tracker_type)
@@ -112,9 +112,12 @@ class Client:
                 if me[3] == self.selected_torrent_info.short_category:
                     dir = me[1]
                     if magnet := self.selected_torrent_info.get_magnet:
-                        self.selected_torrent_info.id_torrent = self.torrent_client.start_download(
-                            magnet,
-                            dir)
+                        if magnet is None:
+                            raise Exception("get_magnet -> magnet is None")
+                        else:
+                            self.selected_torrent_info.id_torrent = self.torrent_client.start_download(
+                                magnet,
+                                dir)
 
     def stop_download_torrent(self, id_torrent: int) -> None:
         self.torrent_client.stop_download(id_torrent)
@@ -219,11 +222,21 @@ class BotClient(Client):
             items.append(f"{num + (num_ * 6)})    {self.escape_special_chars_translate(torrent_info.name[:101])} || "
                          f"{torrent_info.size}\n\n")
 
-        add_text, self.true_name_jellyfin = self.db_manager.get_info_text_and_names(categories,
-                                                                                        self.last_search_title)
+        db_data = self.db_manager.get_info_text_and_names(categories,
+                                                          self.last_search_title)
+        add_text = []
+        self.true_name_jellyfin = ""
+        for data in  db_data:
+            suggestions = "`\n - `".join(data[1])
+            add_text.append(f"----------------------------------------\n"
+                            f"**Возможно вы имели в виду {data[0]}:** \n - `{suggestions}`\n"
+                            f"{data[2]}\n")
+            self.true_name_jellyfin = data[1][0]
+        add_text.append("----------------------------------------")
+
         return (f"`{self.last_search_title}`\n"
                 f"----------------------------------------\n"
-                f"{''.join(items)} {add_text}")
+                f"{''.join(items)} {''.join(add_text)}")
 
     def get_full_info_torrent(self, num: int) -> str:
         if not self.list_torrent_info:

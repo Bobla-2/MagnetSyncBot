@@ -2,14 +2,7 @@ import os
 import shutil
 from datetime import datetime
 from module.crypto_token import config
-
-def singleton(cls):
-    instances = {}
-    def get_instance(*args, **kwargs):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
-    return get_instance
+from module.other.singleton import singleton
 
 
 @singleton

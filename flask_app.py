@@ -5,17 +5,26 @@ from module.logger.logger import SimpleLogger
 from module.crypto_token import config
 import secrets
 from flask import make_response
+import time
 
 
 # config.JELLYFIN_ENABLE = False
-
+logger = SimpleLogger()
+app = Flask(__name__)
+_last_error = ""
 _clients_by_id = {}
 _clients_lock = Lock()
+torrent_dowlander_lock = Lock()
+_downloads_cache = {
+    "ts": 0.0,
+    "items": []
+}
 
 CLIENT_COOKIE_NAME = "magnetsync_client_id"
 
 class WebClient(Client):
     def __init__(self):
+        self.lock = Lock()
         super().__init__()
 
     def web_prepare_search_meta(self) -> None:
@@ -24,10 +33,12 @@ class WebClient(Client):
             return
 
         categories = [torrent_info.short_category for torrent_info in self.list_torrent_info]
-        _, self.true_name_jellyfin = self.db_manager.get_info_text_and_names(
+        db_data = self.db_manager.get_info_text_and_names(
             categories,
             self.last_search_title
         )
+        if db_data:
+            self.true_name_jellyfin = db_data[0][1][0]
 
     def web_get_search_results(self) -> list[dict]:
         out = []
@@ -37,7 +48,7 @@ class WebClient(Client):
         for num, torrent_info in enumerate(self.list_torrent_info):
             out.append({
                 "num": num,
-                "name": torrent_info.name,
+                "name": torrent_info.name[:130],
                 "size": torrent_info.size,
                 "category": torrent_info.short_category,
             })
@@ -99,31 +110,11 @@ class WebClient(Client):
         res = "\n".join(data_str)
         return (f"{res}\n")
 
-logger = SimpleLogger()
 
+cln_for_dwns = WebClient()
 
 def build_web_client():
     return WebClient()
-    """
-    Здесь нужно вернуть ТВОЙ ГОТОВЫЙ client.
-    Именно тот, через который у тебя уже работает поиск/скачивание.
-
-    Пример:
-        return BotClient(...)
-
-    или:
-        return some_factory.create_client(...)
-    """
-    raise NotImplementedError("Подставь здесь создание своего client")
-
-
-
-
-app = Flask(__name__)
-
-_client_lock = Lock()
-_client = None
-_last_error = ""
 
 def get_or_create_client_id():
     client_id = request.cookies.get(CLIENT_COOKIE_NAME)
@@ -154,7 +145,6 @@ def make_json_response(payload: dict, client_id: str = None, is_new: bool = Fals
             httponly=True,
             samesite="Lax",
         )
-
     return response
 
 def get_client():
@@ -170,14 +160,13 @@ def get_client():
 def index():
     return render_template("index.html", tracker_options=config.TRACKERS)
 
-
 @app.get("/api/search/last")
 def api_search_last():
     global _last_error
 
     try:
-        with _client_lock:
-            client, client_id, is_new = get_client_by_request()
+        client, client_id, is_new = get_client_by_request()
+        with client.lock:
             items = client.web_get_search_results()
             jl_name = client.get_default_name_jellyfin()
             query = getattr(client, "last_search_title", "") or ""
@@ -207,8 +196,8 @@ def api_search():
         return jsonify({"ok": False, "error": "Пустой поисковый запрос"}), 400
 
     try:
-        with _client_lock:
-            client, client_id, is_new = get_client_by_request()
+        client, client_id, is_new = get_client_by_request()
+        with client.lock:
             client.search_torrent(query, tracker)
             client.web_prepare_search_meta()
 
@@ -226,8 +215,8 @@ def api_search():
         }, client_id, is_new)
 
     except Exception as e:
-        with _client_lock:
-            client, client_id, is_new = get_client_by_request()
+
+        client, client_id, is_new = get_client_by_request()
         _last_error = str(e)
         logger.log(f"[WEB] api_search: {e}")
         return make_json_response({
@@ -237,8 +226,6 @@ def api_search():
             "default_name_jellyfin": "",
             "count": 1,
         }, client_id, is_new)
-        # return jsonify({"ok": False, "error": "Ошибка поиска"}), 500
-
 
 @app.get("/api/torrent/<int:num>/info")
 def api_torrent_info(num: int):
@@ -246,8 +233,7 @@ def api_torrent_info(num: int):
 
     try:
         client, client_id, is_new = get_client_by_request()
-
-        with _client_lock:
+        with client.lock:
             if num < 0 or num >= client.get_torrent_info_list_len():
                 return jsonify({"ok": False, "error": f"Номер {num} отсутствует"}), 400
 
@@ -256,7 +242,7 @@ def api_torrent_info(num: int):
 
         return make_json_response({
             "ok": True,
-            "name": client.list_torrent_info[num].name[:150],
+            "name": client.list_torrent_info[num].name[:160],
             "info": info,
             "url": client.list_torrent_info[num].url,
             "default_name_jellyfin": jl_name,
@@ -283,13 +269,15 @@ def api_download():
     name_path = data.get("name_path")
 
     try:
-        with _client_lock:
-            client, client_id, is_new = get_client_by_request()
-            client.web_start_download(
+
+        # client, client_id, is_new = get_client_by_request()
+        with torrent_dowlander_lock:
+            cln_for_dwns.web_start_download(
                 num=num,
                 other='jl' if mode == 'jl' else None,
                 arg_param=name_path
             )
+
 
         return jsonify({"ok": True})
     except ValueError as e:
@@ -299,6 +287,7 @@ def api_download():
         logger.log(f"[WEB] api_download: {e}")
         return jsonify({"ok": False, "error": "Ошибка запуска скачивания"}), 500
 
+
 @app.post("/api/download/delete")
 def api_download_delete():
     global _last_error
@@ -306,16 +295,9 @@ def api_download_delete():
     try:
         data = request.get_json(silent=True) or {}
         num = data.get("num", None)
-
         if num is None:
-
             return jsonify({"ok": False, "error": "Не указан номер"}), 400
 
-        with _client_lock:
-            client = get_client()
-            client.delete_torrent(num)
-
-        return jsonify({"ok": True})
     except Exception as e:
         _last_error = str(e)
         logger.log(f"[WEB] api_download_delete: {e}")
@@ -324,27 +306,23 @@ def api_download_delete():
 
 @app.get("/api/downloads")
 def api_downloads():
-    global _last_error
+    global _last_error, _downloads_cache
+    now = time.time()
     try:
-        with _client_lock:
-            client, client_id, is_new = get_client_by_request()
-            items = client.web_get_active_torrents()
+        if (now - _downloads_cache["ts"]) < 5:
+            items = _downloads_cache["items"]
+        else:
+            with torrent_dowlander_lock:
+                items = cln_for_dwns.web_get_active_torrents()
+            _downloads_cache["items"] = items
+            _downloads_cache["ts"] = now
 
-            return make_json_response({
-                "ok": True,
-                "items": items,
-                "count": len(items),
-            }, client_id, is_new)
-    # try:
-    #     with _client_lock:
-    #         client = get_client()
-    #         items = client.web_get_active_torrents()
-    #
-    #     return jsonify({
-    #         "ok": True,
-    #         "items": items,
-    #         "count": len(items),
-    #     })
+        return jsonify({
+            "ok": True,
+            "items": items,
+            "count": len(items),
+        })
+
     except Exception as e:
         _last_error = str(e)
         logger.log(f"[WEB] api_downloads: {e}")

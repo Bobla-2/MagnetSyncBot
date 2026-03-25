@@ -1,9 +1,8 @@
 # Используем официальный образ Python
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Устанавливаем переменные окружения для корректной работы Python
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 # Устанавливаем рабочую директорию в контейнере
 WORKDIR /app
@@ -20,5 +19,6 @@ COPY . /app/
 # Открываем необходимые порты
 EXPOSE 8080 9091 10809
 
-# Указываем команду для запуска бота
-CMD ["python", "main.py"]
+RUN chmod +x /app/entrypoint.sh
+
+CMD ["./entrypoint.sh"]

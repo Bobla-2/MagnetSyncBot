@@ -3,32 +3,25 @@ import time
 from module.crypto_token import config
 from typing import List, Tuple
 from ..ABC import ABCDatabaseSearch
+from module.logger.logger import SimpleLogger
+from module.other.singleton import singleton
+
 
 def _retries_retry_operation(func, *args, retries: int = 2, **kwargs):
     for attempt in range(retries):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            print(f"Попытка {attempt + 1} из {retries}. Ошибка сети: ПОДКЛЮЧЕНИЯ kinopoisk {e}.")
+            SimpleLogger().log(f"[_retries_retry_operation] : Попытка {attempt + 1} из {retries}. Ошибка сети: ПОДКЛЮЧЕНИЯ kinopoisk {e}.")
             time.sleep(0.3)
-    print(f"Не удалось загрузить kinopoisk после {retries} попыток.")
+    SimpleLogger().log(f"[_retries_retry_operation] : Не удалось загрузить kinopoisk после {retries} попыток.")
     return None
-
-
-def singleton(cls):
-    instances = {}
-
-    def get_instance(*args, **kwargs):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
-    return get_instance
 
 
 @singleton
 class KinopoiskDatabaseSearch(ABCDatabaseSearch):
     def __init__(self):
-        self.__BASE_URL = "https://api.kinopoisk.dev/v1.4/movie/search"
+        self.__BASE_URL = config.KINOPOISK_BASE_URL
         self.__headers = {
             "X-API-KEY": config.API_TOKEN_KINOPOISK,  # API-ключ
             "Accept": "application/json"
@@ -66,9 +59,9 @@ class KinopoiskDatabaseSearch(ABCDatabaseSearch):
             "limit": 1,  # Количество результатов на странице
             "page": 1    # Номер страницы
         }
-        response = _retries_retry_operation(requests.get, self.__BASE_URL, params=params, headers=self.__headers)
+        response = _retries_retry_operation(requests.get, self.__BASE_URL, params=params, headers=self.__headers, timeout=(5, 10))
         url_ = ''
-        if response.status_code == 200:
+        if response and response.status_code == 200:
             data = response.json()
             for movie in data.get("docs", []):  # Перебираем найденные фильмы/сериалы
                 kino_name = movie.get('name')
@@ -90,7 +83,7 @@ class KinopoiskDatabaseSearch(ABCDatabaseSearch):
                 return ([kino_alt_name, kino_name], f'[Кинопоиск]({url_}){imdb_str}')
 
         else:
-            print(f"Ошибка {response.status_code}: {response.text}")
+            SimpleLogger().log(f"[KinopoiskDatabaseSearch] : Ошибка {response.status_code}: {response.text}")
             return (["Ошибка"], "Кинопоиск")
 
 

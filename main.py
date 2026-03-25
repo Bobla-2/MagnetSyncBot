@@ -16,7 +16,7 @@ if __name__ == '__main__':
         while True:
             try:
                 SimpleLogger().log("[main] : BOT setup")
-                tg_bot.setup(config.get_token())
+                tg_bot.setup(config.tg_token)
                 SimpleLogger().log("[main] : BOT run")
                 tg_bot.run()
             except Exception as e:

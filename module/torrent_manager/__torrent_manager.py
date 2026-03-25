@@ -95,11 +95,12 @@ class TransmissionManager(TorrentManager):
         :return: progress download at 0 to 1
         '''
         # self.get_path()
-        if not id:
+        if id is None:
             id = self.__id_last
         try:
             progress = self.__client.get_torrent(id).progress / 100
-        except Exception:
+        except Exception as e:
+            SimpleLogger().log(f"[TransmissionManager] error: {e}")
             progress = -1.
         print(f'[TransmissionManager] : id={id} progress download: {progress}')
         return progress
@@ -112,7 +113,12 @@ class TransmissionManager(TorrentManager):
         out_list = []
         torrents_sorted = sorted(torrents, key=lambda t: t.added_date, reverse=True)
         for num, torrent in enumerate(torrents_sorted):
-            out_list.append(ActiveTorrentsInfo(num, torrent.name, f"{torrent.status}, {torrent.ratio}", f"{torrent.progress:.1f}%", torrent.id))
+            ratio = torrent.ratio
+            if ratio is not None:
+                ratio_str = f"{ratio:.1f}"
+            else:
+                ratio_str = "0.0"
+            out_list.append(ActiveTorrentsInfo(num, torrent.name, f"{torrent.status}, {ratio_str}", f"{torrent.progress:.1f}%", torrent.id))
         return out_list
 
     def delete_torrent(self, id: int):

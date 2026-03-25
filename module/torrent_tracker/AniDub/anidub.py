@@ -20,7 +20,6 @@ def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
     return None
 
 
-
 class TorrentInfo(ABCTorrentInfo):
     """
     Класс объекта торрента содержащего все данные о торренте
@@ -101,17 +100,6 @@ class TorrentInfo(ABCTorrentInfo):
         return text.translate(translation_table)
 
 
-def singleton(cls):
-    instances = {}
-
-    def get_instance(*args, **kwargs):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
-    return get_instance
-
-
-@singleton
 class AniDub(ABCTorrenTracker):
     """
     Класс для взаимодействия с  AniDub и выполнения поиска торрентов.
@@ -202,7 +190,7 @@ class _AniDubParserPage:
 
     @staticmethod
     def __loader(url: str, proxies):
-        response = requests.get(url, proxies=proxies)
+        response = requests.get(url, proxies=proxies, timeout=(5, 10))
         response.raise_for_status()
         page_content = response.text
         return BeautifulSoup(page_content, "html.parser")
@@ -220,7 +208,10 @@ class _AniDubParserPage:
 
             full_url = urllib.parse.urljoin(config.ANIDUB_BASE_URL, relative_url)
             # Шаг 2: Скачать файл
-            response = requests.get(full_url)
+            response = _retries_retry_operation(requests.get, full_url, timeout=(5, 10))
+            if response is None:
+                return None
+            # response = requests.get(full_url, timeout=(5, 10))
             response.raise_for_status()
 
             # Шаг 3: Распарсить .torrent

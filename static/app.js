@@ -66,12 +66,16 @@
 
         root.innerHTML = items.map(item => `
             <div class="result-item">
-                <div class="result-title">${escapeHtml(item.num)}) ${escapeHtml(item.name)}</div>
-                <div class="result-meta">Размер: ${escapeHtml(item.size)}<br>Категория: ${escapeHtml(item.category)}</div>
-                <div class="result-actions">
-                    <button onclick="showInfo(${item.num})">Показать доп. инфу</button>
-                    <button onclick="startDownload(${item.num}, false)">Скачать</button>
-                    <button onclick="startDownload(${item.num}, true)">Скачать + symlink</button>
+                <div class="result-title">
+                    ${escapeHtml(item.num)}) ${escapeHtml(item.name)}
+                </div>
+                <div class="result-bottom">
+                    <div class="result-meta">Размер: ${escapeHtml(item.size)}<br>Категория: ${escapeHtml(item.category)}</div>
+                    <div class="result-actions">
+                        <button onclick="showInfo(${item.num})">🔍</button>
+                        <button onclick="startDownload(${item.num}, false)">⬇️</button>
+                        <button onclick="startDownload(${item.num}, true)">⬇️🔗</button>
+                    </div>
                 </div>
             </div>
         `).join("");
@@ -102,30 +106,6 @@
 }
 
 
-
-    async function deleteDownload(num) {
-    const ok = confirm(`Удалить закачку ${num}?`);
-    if (!ok) {
-        return;
-    }
-
-    setStatus("Удаление закачки...");
-
-    try {
-        await api("/api/download/delete", {
-            method: "POST",
-            body: JSON.stringify({
-                num: num,
-            }),
-        });
-
-        setStatus("Закачка удалена");
-        await loadDownloads();
-    } catch (e) {
-        setStatus(e.message);
-    }
-}
-
     async function searchTorrents() {
         const query = document.getElementById("searchQuery").value.trim();
         const tracker = document.getElementById("trackerType").value;
@@ -153,6 +133,7 @@
             renderResults(data.items);
 //            setStatus("Поиск завершён");
         } catch (e) {
+
             setStatus(e.message);
         }
     }
@@ -219,6 +200,7 @@
             setStatus("Скачивание запущено");
             await loadDownloads();
         } catch (e) {
+            openFatalErrorDialog(e.message)
             setStatus(e.message);
         }
     }
@@ -246,6 +228,21 @@
             setStatus(e.message);
         }
     }
+
+    async function openFatalErrorDialog(text_error) {
+        try {
+
+            const dialog = document.getElementById("errorDialog");
+            const text = document.getElementById("errorText");
+
+            text.textContent = text_error || "Ошибок нет";
+
+            dialog.showModal();
+        } catch (e) {
+            setStatus(e.message);
+        }
+    }
+
     const infoDialog = document.getElementById("infoDialog");
     const errorDialog = document.getElementById("errorDialog");
     const deleteDialog = document.getElementById("deleteDialog");
@@ -284,6 +281,7 @@
 
             await loadDownloads();
         } catch (e) {
+            openFatalErrorDialog(e.message)
             setStatus(e.message);
         }
     }
