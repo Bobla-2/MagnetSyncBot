@@ -23,6 +23,6 @@ if __name__ == '__main__':
                 SimpleLogger().log(f"[main] : tg_bot.run() ERROR {e}")
                 time.sleep(1)
     else:
-        app.run(host="0.0.0.0", port=8080, debug=True)
+        pass
 
 

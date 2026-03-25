@@ -9,5 +9,5 @@ if [ "$MODE" = "tg" ]; then
     exec python main.py
 else
     echo "Starting web (gunicorn)"
-    exec gunicorn -w 1 --threads 4 -b 0.0.0.0:8000 app:app
+    exec gunicorn -w 1 --threads 4 -b 0.0.0.0:8000 flask_app:app
 fi
