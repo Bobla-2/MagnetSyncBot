@@ -1,5 +1,10 @@
 # MagnetSyncBot
-Телеграмм бот позволяющий находить контент на трекерах, а также управлять загрузками на удаленном клиенте transmission или qB.
+Система позволяющая находить контент на трекерах, а также управлять загрузками на удаленном клиенте transmission или qB.
+Также поддерживается 2 интерфейса, через TG либо Web 
+![img_1.png](img_1.png)
+
+#### Примечание*
+- В последних версиях не гарантируется стабильная работа интерфейса через TG 
 
 ## Info
 [![Release](https://img.shields.io/github/v/release/Bobla-2/MagnetSyncBot?releases)](https://github.com/Bobla-2/MagnetSyncBot/releases/latest)
@@ -8,7 +13,6 @@
 - [Использование](#Использование)
 - [Использование_Docker](#Использование_Docker)
 - [Создание_config_файла](#Создание_config_файла)
-- [Список_команд](#Список_команд)
 - [Сборка_проекта](#Сборка_проекта)
 
 ## Использование
@@ -50,44 +54,13 @@ sudo nano ./MagnetSyncBot/module/crypto_token/config.py
 docker build -t magnetsyncbot ./MagnetSyncBot/ && cd ./MagnetSyncBot && docker compose up -d && cd ../
 ```
 
-
-
 ## Создание_config_файла 
-Для работы нужно создать файл "MagnetSyncBot\module\crypto_token\config.py" с методами и переменными:
-
-(Шаблон "MagnetSyncBot\module\crypto_token\config_templ.py")
-- `get_token() -> str` (токен от ТГ бота)
-- `get_pass_rutreker() -> str` (пароль от рутрекера)
-- `get_login_rutreker() -> str` (логин от рутрекера)
-- `get_pass_defualt_torent_client() -> str` (пароль для торрент-клиента по умолчанию)
-
-- `proxy: str` = [`"http://host:port"`|`"socks5h://user:password@host:port"`]
-- `tornt_cli_host: str` (хост торрент-клиента по умолчанию)
-- `tornt_cli_port: int` (порт торрент-клиента по умолчанию)
-- `tornt_cli_type: str` (тип торрент-клиента по умолчанию)
-- `tornt_cli_login: str` (логин для торрент-клиента по умолчанию)
-- `jellyfin: bool` (включение функции генерации symlink)
-- `jellyfin_dir: str` (путь куда генерировать symlink)
-Подробнее можно прочитать в шаблоне
+Для работы нужно создать файл "MagnetSyncBot\module\crypto_token\config.py"
+Шаблон "MagnetSyncBot\module\crypto_token\config_templ.py"
 
 
-## Список_команд
+## Список_команд_tg
 Новый интерфейс перешел на кнопки, но команды поддерживаются
-
- - Для начала: `/start`
- - Для поиска: `/search {РЕСУРС} {НАЗВАНИЕ}`
-
-   РЕСУРС = [None(RuTracker), 1337]
- - Для скачивания: `/download {НОМЕР}`
- - Для просмотра параметров: `/look {НОМЕР}`
-
-### Команды не имеющие аналогов в виде кнопок
- - Для установки кастомного торрент клиента введите:
-   `/start {type}:{host}:{port}:{login}:{pass}`
-   - type = [qbittorrent, transmission]
-   - if host = 'https://' -> port = 443
- - /log - последние 4000 символов лога
- - /last_log - краткая запись последней критической ошибки
 
 ## Сборка_проекта
 Для сборки проекта существует скрипт, который позволяет создать копию с удалением не нужных файлов/папок
