@@ -5,7 +5,17 @@ from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo, ABCTorrenTrac
 import module.crypto_token.config as config
 from module.logger.logger import SimpleLogger
 from module.other.singleton import singleton
+import re
 
+
+SEASON_RE = re.compile(
+    r'(?:'
+    r'(?:тв|tv)\s*-?\s*(\d{1,2})'   # ТВ-02, ТВ2, TV 03
+    r'|'
+    r'season\s*(\d{1,2})'          # Season 01
+    r')',
+    re.IGNORECASE
+)
 
 def _retries_retry_operation(func, *args, retries: int = 3, **kwargs):
     for attempt in range(retries):
@@ -48,7 +58,7 @@ class TorrentInfo(ABCTorrentInfo):
             self.__size = int(size) / 1_048_576
             self.__size = f'{round(self.__size, 2)} MB' if self.__size < 800. else f'{round(self.__size / 1024, 2)} GB'
         else:
-            self.__size = "NA"
+            self.__size = ""
         self.__seeds = seeds
         self.__leeches = leeches
         self.__id_torrent = None
@@ -68,7 +78,6 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def get_other_data(self) -> str:
-        # return self.__data
         data = self.__data
         data = [["leeches", self.__leeches], ["seeds", self.__seeds], ["дата", self.__year]] + data
         return data
@@ -83,18 +92,7 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def category(self) -> str:
-        return ""
-
-    def escape_special_chars_translate(self, text: str) -> str:
-        special_chars = '_*[~`#=|{}\\'
-        translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
-        return text.translate(translation_table)
-
-    # @property
-    # def full_info(self) -> str:
-    #     return (f"{self.escape_special_chars_translate(self.__name)}\n\n"
-    #             f"*leeches:* {self.__leeches}\n*seeds:* {self.__seeds}\n*дата:* {self.__year}\n{self.get_other_data}\n"
-    #             f"[страница]({self.__url})")
+        return "anime"
 
     @property
     def url(self) -> str:
@@ -114,6 +112,21 @@ class TorrentInfo(ABCTorrentInfo):
             if not self.__short_categories:
                 self.__short_categories = "other"
         return self.__short_categories
+
+    @property
+    def season(self) -> int:
+        m = SEASON_RE.search(self.__name)
+        return int(m.group(1) or m.group(2)) if m else 1
+
+    @property
+    def qualiti(self) -> str:
+        for dt in self.get_other_data:
+            if dt[0] == "Вид":
+                return dt[1]
+
+    @property
+    def enable_magnet(self) -> bool:
+        return True
 
 
 @singleton

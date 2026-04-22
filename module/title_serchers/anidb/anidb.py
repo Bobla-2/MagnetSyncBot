@@ -11,13 +11,15 @@ from ..ABC import ABCDatabaseSearch
 import re
 from datetime import datetime, timedelta
 from module.other.singleton import singleton
-
+from threading import RLock
 
 @singleton
 class AnimeDatabaseSearch(ABCDatabaseSearch):
     def __init__(self):
         self.__data_create = None
-        self.__anime_list = AnimeDatabaseLoader().load_or_parse_database()
+        self.lock = RLock()
+        with self.lock:
+            self.__anime_list = AnimeDatabaseLoader().load_or_parse_database()
 
     def find_id_titles_id_by_request(self, search_title: str):
         """Find the anime ID by title using fuzzy matching."""
@@ -48,34 +50,36 @@ class AnimeDatabaseSearch(ABCDatabaseSearch):
         return []
 
     def get_names_and_url_title(self, search_title: str):
-        if self.__check_creation_date():
-            AnimeDatabaseLoader().update_database()
-            self.__anime_list = AnimeDatabaseLoader().load_or_parse_database()
-            self.__data_create = AnimeDatabaseLoader().get_dat()
-        _, anime_id = self.find_id_titles_id_by_request(search_title)
-        list_ = self.get_titles_by_id(anime_id)
-        return ([title[0] for title in list_
-                if title[2] in 'main']+[
-                title[0] for title in list_
-                if title[1] == 'ru' and title[2] in ('main', 'syn', 'official')],
-                f'[AniDB](https://anidb.net/anime/{anime_id})')
+        with self.lock:
+            if self.__check_creation_date():
+                AnimeDatabaseLoader().update_database()
+                self.__anime_list = AnimeDatabaseLoader().load_or_parse_database()
+                self.__data_create = AnimeDatabaseLoader().get_dat()
+            _, anime_id = self.find_id_titles_id_by_request(search_title)
+            list_ = self.get_titles_by_id(anime_id)
+            return ([title[0] for title in list_
+                    if title[2] in 'main']+[
+                    title[0] for title in list_
+                    if title[1] == 'ru' and title[2] in ('main', 'syn', 'official')],
+                    f'[AniDB](https://anidb.net/anime/{anime_id})')
 
     def __check_creation_date(self, len_days=14):
-        if not self.__data_create:
-            self.__data_create = AnimeDatabaseLoader().get_dat()
+        with self.lock:
+            if not self.__data_create:
+                self.__data_create = AnimeDatabaseLoader().get_dat()
 
-        if self.__data_create:
-            current_time = datetime.now()
-            if current_time - self.__data_create > timedelta(days=len_days):
-                SimpleLogger().log(f"[AnimeDatabaseSearch] : Прошло больше 14 дней с создания XML. Дата создания: {self.__data_create}")
-                return True
+            if self.__data_create:
+                current_time = datetime.now()
+                if current_time - self.__data_create > timedelta(days=len_days):
+                    SimpleLogger().log(f"[AnimeDatabaseSearch] : Прошло больше 14 дней с создания XML. Дата создания: {self.__data_create}")
+                    return True
+                else:
+                    SimpleLogger().log(
+                        f"[AnimeDatabaseSearch] : С момента создания XML прошло меньше 14 дней. Дата создания: {self.__data_create}")
             else:
                 SimpleLogger().log(
-                    f"[AnimeDatabaseSearch] : С момента создания XML прошло меньше 14 дней. Дата создания: {self.__data_create}")
-        else:
-            SimpleLogger().log(
-                f"[AnimeDatabaseSearch] : Не удалось найти дату создания в XML.")
-        return False
+                    f"[AnimeDatabaseSearch] : Не удалось найти дату создания в XML.")
+            return False
 
 
 class AnimeDatabaseLoader:

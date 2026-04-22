@@ -4,3 +4,9 @@ services:
     container_name: magnetsyncbot
     restart: unless-stopped
     network_mode: host
+    environment:
+      - BD_PATH=/magnetsyncbot_data/torrents.bd
+    volumes:
+      - magnetsyncbot_data:/magnetsyncbot_data
+volumes:
+  magnetsyncbot_data:

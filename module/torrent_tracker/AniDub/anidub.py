@@ -7,9 +7,19 @@ import bencodepy
 import hashlib
 import urllib.parse
 from module.logger.logger import SimpleLogger
+import re
 
 
-def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
+SEASON_RE = re.compile(
+    r'(?:'
+    r'(?:тв|tv)\s*-?\s*(\d{1,2})'   # ТВ-02, ТВ2, TV 03
+    r'|'
+    r'season\s*(\d{1,2})'          # Season 01
+    r')',
+    re.IGNORECASE
+)
+
+def _retries_retry_operation(func, *args, retries: int = 3, **kwargs):
     for attempt in range(retries):
         try:
             return func(*args, **kwargs)
@@ -18,7 +28,6 @@ def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
             time.sleep(1)
     print(f"Не удалось загрузить anidub после {retries} попыток.")
     return None
-
 
 class TorrentInfo(ABCTorrentInfo):
     """
@@ -44,7 +53,8 @@ class TorrentInfo(ABCTorrentInfo):
 
     @property
     def size(self) -> str:
-        return self.__parser.get_size()
+        return ''
+        # return self.__parser.get_size()
 
     @property
     def get_magnet(self) -> str:
@@ -68,12 +78,6 @@ class TorrentInfo(ABCTorrentInfo):
     def category(self) -> str:
         return self.__category
 
-    # @property
-    # def full_info(self) -> str:
-    #     return (f"{TorrentInfo.escape_special_chars_translate(self.__name)}\n\n"
-    #             f"*seeds:* {self.__parser.get_seeders()}\n{self.get_other_data}\n"
-    #             f"[страница]({self.__url})")
-
     @property
     def short_category(self) -> str | None:
         if not self.__short_categories:
@@ -93,11 +97,18 @@ class TorrentInfo(ABCTorrentInfo):
     def url(self) -> str:
         return self.__url
 
-    @staticmethod
-    def escape_special_chars_translate(text: str) -> str:
-        special_chars = '_*[~`#=|{}\\'
-        translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
-        return text.translate(translation_table)
+    @property
+    def season(self) -> int:
+        m = SEASON_RE.search(self.__name)
+        return int(m.group(1) or m.group(2)) if m else 1
+
+    @property
+    def qualiti(self) -> str:
+        return ""
+
+    @property
+    def enable_magnet(self) -> bool:
+        return True
 
 
 class AniDub(ABCTorrenTracker):
@@ -176,17 +187,18 @@ class _AniDubParserPage:
     """
     def __init__(self, url: str):
         self.url = url
-        self.__soup = None
+        self.soup = None
 
     def __load_page(self):
         """
         Внутренний метод, скачивающий html файл страници
         Нужно вызывать во всех функциях
         """
-        if not self.__soup and self.url:
+        if not self.soup and self.url:
+            SimpleLogger().log(f"[_AniDubParserPage] : загрузка полных данных. {self.url}")
             proxies = {'http': config.proxy,
                        'https': config.proxy}
-            self.__soup = _retries_retry_operation(self.__loader, url=self.url, proxies=proxies)
+            self.soup = _retries_retry_operation(self.__loader, url=self.url, proxies=proxies)
 
     @staticmethod
     def __loader(url: str, proxies):
@@ -198,8 +210,8 @@ class _AniDubParserPage:
     def get_magnet(self):
         self.__load_page()
         relative_url = ''
-        if self.__soup:
-            for a in self.__soup.find_all('a', href=True):
+        if self.soup:
+            for a in self.soup.find_all('a', href=True):
                 if "download.php?id=" in a['href']:
                     relative_url = a['href']
                     break
@@ -249,25 +261,25 @@ class _AniDubParserPage:
 
     def get_seeders(self):
         self.__load_page()
-        if not self.__soup:
+        if not self.soup:
             return "Не удалось загрузить контент с AniDub"
-        block = self.__soup.find('div', class_='list down')
+        block = self.soup.find('div', class_='list down')
         seeders = block.find('span', class_='li_distribute_m').text.strip()
         return seeders
 
     def get_size(self):
         self.__load_page()
-        if not self.__soup:
+        if not self.soup:
             return "Не удалось загрузить контент с AniDub"
-        block = self.__soup.find('div', class_='list down')
+        block = self.soup.find('div', class_='list down')
         size = block.find('span', class_='red').text.strip()
         return size
 
     def get_year(self) -> str:
         self.__load_page()
-        if not self.__soup:
+        if not self.soup:
             return "Не удалось загрузить контент с AniDub"
-        block = self.__soup.find('div', class_='xfinfodata')
+        block = self.soup.find('div', class_='xfinfodata')
         if block:
             year_label = block.find('b', string=lambda t: t and "Год" in t)
             if year_label:
@@ -279,10 +291,10 @@ class _AniDubParserPage:
 
     def get_other_data(self) -> list[list[str]]:
         self.__load_page()
-        if not self.__soup:
+        if not self.soup:
             return [["Ошибка", "Не удалось загрузить контент с AniDub"]]
 
-        block = self.__soup.find('div', class_='xfinfodata')
+        block = self.soup.find('div', class_='xfinfodata')
         if not block:
             return [["Ошибка", "Блок с информацией не найден"]]
 

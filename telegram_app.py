@@ -39,7 +39,7 @@ class Client:
         self.tracker_type = config.TRACKERS[0]
         self.old_ready_msg_id: int | None = None
 
-        self.tracker = TorrentTracker()
+        self.tracker = TorrentTracker(config.TRACKERS)
         self.x1337 = None
         self.torrent_client = None
         SimpleLogger().log("[Client] : TorrentTracker start")
@@ -147,6 +147,9 @@ class Client:
 
     def delete_torrent(self, num):
         self.torrent_client.delete_torrent(self.list_active_torrent[int(num)].id)
+
+    def delete_torrent_to_id(self, id):
+        self.torrent_client.delete_torrent(id)
 
     def get_list_active_torrent(self) -> None:
         self.list_active_torrent = self.torrent_client.get_list_active_torrents()

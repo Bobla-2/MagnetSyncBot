@@ -1,6 +1,7 @@
 
     let currentInfoNum = null;
     let currentDefaultJlName = "";
+    let currentDefaultJlNamePath = "";
     let deleteNum = null;
     let deleteName = "";
     let currentMobilePanel = "results";
@@ -64,22 +65,43 @@
             return;
         }
 
+        const isErrorOnly =
+            items.length === 1 &&
+            /ошиб|не найдено/i.test(items[0].name);
+
         root.innerHTML = items.map(item => `
             <div class="result-item">
                 <div class="result-title">
                     ${escapeHtml(item.num)}) ${escapeHtml(item.name)}
                 </div>
                 <div class="result-bottom">
-                    <div class="result-meta">Размер: ${escapeHtml(item.size)}<br>Категория: ${escapeHtml(item.category)}</div>
-                    <div class="result-actions">
-                        <button onclick="showInfo(${item.num})">🔍</button>
-                        <button onclick="startDownload(${item.num}, false)">⬇️</button>
-                        <button onclick="startDownload(${item.num}, true)">⬇️🔗</button>
-                    </div>
+                    ${renderMeta(item)}
+                    ${
+                        isErrorOnly
+                            ? ""
+                            : `
+                            <div class="result-actions">
+                                <button onclick="showInfo(${item.num})">🔍</button>
+                                ${item.enable_magnet ? `
+                                    <button onclick="startDownload(${item.num}, false)">⬇️</button>
+                                    <button onclick="startDownload(${item.num}, true)">⬇️🔗</button>
+                                ` : ""}
+                            </div>
+                            `
+                    }
                 </div>
             </div>
         `).join("");
+
         updateMobilePanelsHeight();
+    }
+
+    function renderMeta(item) {
+        const extra = Object.entries(item.data || {})
+            .map(([key, value]) => `${escapeHtml(key)}: ${escapeHtml(String(value))}`)
+            .join("<br>");
+
+        return `<div class="result-meta">${extra}</div>`;
     }
 
     function renderDownloads(items) {
@@ -92,12 +114,12 @@
     }
 
     root.innerHTML = items.map(item => `
-        <div class="download-item">
+        <div class="download-item" data-id="${escapeHtml(item.id)}">
             <div class="download-title">${escapeHtml(item.num)}) ${escapeHtml(item.name)}</div>
             <div class="download-row">
                 <div class="download-meta">Статус: ${escapeHtml(item.status)}<br>Прогресс: ${escapeHtml(item.progress)}</div>
                 <div class="download-actions">
-                    <button onclick='openDeleteDialog(${item.num}, ${JSON.stringify(item.name)})'>Удалить</button>
+                    <button onclick='openDeleteDialog(${item.num}, ${JSON.stringify(item.name)}, ${item.id})'>Удалить</button>
                 </div>
             </div>
         </div>
@@ -146,25 +168,47 @@
         currentInfoNum = num;
         currentDefaultJlName = data.default_name_jellyfin || currentDefaultJlName || "";
         updateJlButton()
-        const infoName = document.getElementById("infoName");
-        const infoText = document.getElementById("infoText");
-        const infoLinkWrap = document.getElementById("infoLinkWrap");
+        if (data.enable_magnet) {
+            const infoName = document.getElementById("infoName");
+            const infoText = document.getElementById("infoText");
+            const infoLinkWrap = document.getElementById("infoLinkWrap");
+            infoName.textContent = data.name || "";
+            infoText.textContent = data.info || "";
+            infoLinkWrap.innerHTML = "";
 
-        infoName.textContent = data.name || "";
-        infoText.textContent = data.info || "";
-        infoLinkWrap.innerHTML = "";
+            if (data.url) {
+                const a = document.createElement("a");
+                a.href = data.url;
+                a.target = "_blank";
+                a.rel = "noopener noreferrer";
+                a.textContent = "Открыть страницу";
+                a.className = "link-btn";
+                infoLinkWrap.appendChild(a);
+            }
 
-        if (data.url) {
-            const a = document.createElement("a");
-            a.href = data.url;
-            a.target = "_blank";
-            a.rel = "noopener noreferrer";
-            a.textContent = "Открыть страницу";
-            a.className = "link-btn";
-            infoLinkWrap.appendChild(a);
+            document.getElementById("infoDialog").showModal();
+        } else {
+
+            const infoName = document.getElementById("infoName_onlyLook");
+            const infoText = document.getElementById("infoText_onlyLook");
+            const infoLinkWrap = document.getElementById("infoLinkWrap_onlyLook");
+            infoName.textContent = data.name || "";
+            infoText.textContent = data.info || "";
+            infoLinkWrap.innerHTML = "";
+
+            if (data.url) {
+                const a = document.createElement("a");
+                a.href = data.url;
+                a.target = "_blank";
+                a.rel = "noopener noreferrer";
+                a.textContent = "Открыть страницу";
+                a.className = "link-btn";
+                infoLinkWrap.appendChild(a);
+                }
+
+
+            document.getElementById("infoDialog_onlyLook").showModal();
         }
-
-        document.getElementById("infoDialog").showModal();
         setStatus("");
     } catch (e) {
         setStatus(e.message);
@@ -173,9 +217,22 @@
 
     async function startDownload(num, withAction) {
         let namePath = null;
-
+        let preset = "";
         if (withAction) {
-            const preset = currentDefaultJlName || "";
+            try {
+                const data = await api("/api/default_path", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        num: num,
+                    }),
+                });
+
+                preset = data.default_path || "";
+
+            } catch (e) {
+                setStatus(e.message);
+            }
+
             const entered = prompt("Имя/путь для доп. действия:", preset);
 
             if (entered === null) {
@@ -244,16 +301,19 @@
     }
 
     const infoDialog = document.getElementById("infoDialog");
+    const infoDialog_onlyLook = document.getElementById("infoDialog_onlyLook");
     const errorDialog = document.getElementById("errorDialog");
     const deleteDialog = document.getElementById("deleteDialog");
 
     if (infoDialog) enableOutsideClickClose(infoDialog);
+    if (infoDialog_onlyLook) enableOutsideClickClose(infoDialog_onlyLook);
     if (errorDialog) enableOutsideClickClose(errorDialog);
     if (deleteDialog) enableOutsideClickClose(deleteDialog);
 
-    function openDeleteDialog(num, name) {
+    function openDeleteDialog(num, name, id) {
         deleteNum = num;
         deleteName = name;
+        deleteId = id;
 
         const text = document.getElementById("deleteText");
         text.textContent = `Удалить закачку:\n${name}?`;
@@ -262,7 +322,7 @@
     }
 
     async function deleteDownloadConfirmed() {
-        if (deleteNum === null) {
+        if (deleteId === null) {
             return;
         }
 
@@ -272,7 +332,7 @@
             await api("/api/download/delete", {
                 method: "POST",
                 body: JSON.stringify({
-                    num: deleteNum,
+                    id: deleteId,
                 }),
             });
 
@@ -491,6 +551,10 @@ function updateMobilePanelsHeight() {
 
     document.getElementById("dialogClose").addEventListener("click", function () {
         document.getElementById("infoDialog").close();
+    });
+
+    document.getElementById("dialogClose_onlyLook").addEventListener("click", function () {
+        document.getElementById("infoDialog_onlyLook").close();
     });
 
     document.getElementById("errorClose").addEventListener("click", function () {

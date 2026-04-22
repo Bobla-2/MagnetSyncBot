@@ -8,3 +8,4 @@ module/crypto_token/config.py
 /logs
 /logs_backup
 /release
+/magnetsyncbot_data

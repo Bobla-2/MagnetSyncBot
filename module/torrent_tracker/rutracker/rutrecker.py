@@ -1,5 +1,5 @@
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString, Tag
 from module.torrent_tracker.rutracker.rutracker_api.main import RutrackerApi
 import time
 import module.crypto_token.config as config
@@ -9,8 +9,18 @@ import bencodepy
 import hashlib
 import urllib.parse
 from module.other.singleton import singleton
-from threading import Lock
+from threading import RLock
+import re
 
+
+SEASON_RE = re.compile(
+    r'(?:'
+    r'(?:тв|tv)\s*-?\s*(\d{1,2})'   # ТВ-02, ТВ2, TV 03
+    r'|'
+    r'season\s*(\d{1,2})'          # Season 01
+    r')',
+    re.IGNORECASE
+)
 
 def _retries_retry_operation(func, *args, retries: int = 2, **kwargs):
     for attempt in range(retries):
@@ -29,7 +39,7 @@ class TorrentInfo(ABCTorrentInfo):
 
     имеет несколько @property, берущих данные со страници рутрекера через парсер RutrackerParserPage
     """
-    __slots__ = ('__category', '__name', '__year', '__url', '__size_', '__parser', '__id_torrent', '__forum_name', '__short_categories')
+    __slots__ = ('__category', '__name', '__year', '__url', '__size_', '__parser', '__id_torrent', '__forum_name', '__short_categories', '__other_data')
 
     def __init__(self, category: str = '',
                  name: str = None,
@@ -46,6 +56,7 @@ class TorrentInfo(ABCTorrentInfo):
         self.__parser = RutrackerParserPage(self.__url)
         self.__id_torrent = None
         self.__short_categories = ''
+        self.__other_data = None
         self.__size_ = f'{size} MB' if size < 800. else f'{round(size / 1024, 2)} GB'
 
     @property
@@ -62,11 +73,12 @@ class TorrentInfo(ABCTorrentInfo):
         return self.__parser.get_magnet_link()
 
     @property
-    def get_other_data(self) -> str:
-        data = self.__parser.get_other_data()
-        data = [["Вес" , self.__size_], ["Категория", self.__category]] + data
-        return data
-
+    def get_other_data(self) -> list:
+        if self.__other_data is None:
+            data = self.__parser.get_other_data()
+            data = [["Вес" , self.__size_], ["Категория", self.__category]] + data
+            self.__other_data = data
+        return self.__other_data
 
     @property
     def id_torrent(self) -> str:
@@ -91,19 +103,68 @@ class TorrentInfo(ABCTorrentInfo):
                 self.__short_categories = "other"
         return self.__short_categories
 
-    def escape_special_chars_translate(self, text: str) -> str:
-        special_chars = '_*[~`#=|{}\\'
-        translation_table = str.maketrans({char: f'\\{char}' for char in special_chars})
-        return text.translate(translation_table)
 
-    # @property
-    # def full_info(self) -> str:
-    #     return (f"{self.escape_special_chars_translate(self.__name)}\n\n*Вес:* {self.__size_}\n*Категория:* {self.__category}\n{self.get_other_data}\n"
-    #             f"[страница]({self.__url})")
+    @property
+    def season(self) -> int:
+        m = SEASON_RE.search(self.__name)
+        return int(m.group(1) or m.group(2)) if m else 1
+
+    @property
+    def qualiti(self) -> str:
+        title = f"{self.__name}"
+
+        if self.short_category == "music":
+            s = (title or "").lower()
+
+            patterns = [
+                r'\bflac\b',
+                r'\bmp3\b',
+                r'\baac\b',
+                r'\bogg\b',
+                r'\bopus\b',
+                r'\bwav\b',
+                r'\balac\b',
+                r'\bm4a\b',
+                r'\baiff\b',
+                r'\bwma\b',
+            ]
+
+            for pattern in patterns:
+                m = re.search(pattern, s, re.IGNORECASE)
+                if m:
+                    return m.group(0).upper()
+        if self.short_category == "cinema" or self.short_category == "anime":
+            s = (title or "").lower()
+
+            patterns = [
+                r'\bbdremux\b',
+                r'\bbdrip\b',
+                r'\bbluray\b',
+                r'\bweb[-\s]?dl\b',
+                r'\bweb[-\s]?rip\b',
+                r'\bhdtv\b',
+                r'\bdvdrip\b',
+                r'\bdvd\b',
+                r'\bts\b',
+                r'\btc\b',
+                r'\bcamrip\b',
+                r'\bcam\b',
+                r'\bweb[-\s]?dlrip\b',
+                r'\bweb[-\s]?dlremux\b',
+            ]
+            for pattern in patterns:
+                m = re.search(pattern, s, re.IGNORECASE)
+                if m:
+                    return m.group(0).upper()
+        return ""
 
     @property
     def url(self) -> str:
         return self.__url
+
+    @property
+    def enable_magnet(self) -> bool:
+        return True
 
 
 
@@ -117,7 +178,7 @@ class Rutracker(ABCTorrenTracker):
     """
     def __init__(self):
         if config.UI_MODE.lower() == "web":
-            self.lock = Lock()
+            self.lock = RLock()
         SimpleLogger().log("[Rutracker] : start init")
         self.__rutracker = _retries_retry_operation(_Rutracker,
                                                     username=config.login_rutreker,
@@ -191,7 +252,7 @@ class _Rutracker:
                                     category=res["category"],
                                     url=res["url"],
                                     size=round(res["size"]/1048576, 2)) for res in search_results]
-        print(torrent_list)
+        print(f"get_search_list : {torrent_list}")
         return torrent_list
 
 
@@ -247,19 +308,52 @@ class RutrackerParserPage:
             data = []
             # print(post_body.find_all("span", class_="post-b"))
             for element in post_body.find_all("span", class_="post-b"):
-                key = element.get_text(strip=True).rstrip(":")  # Название поля
-                sibling = element.next_sibling
-                while sibling and not isinstance(sibling, str):
-                    sibling = sibling.next_sibling
+                key = element.get_text(" ", strip=True).rstrip(":")
+                if not key:
+                    continue
 
-                value = sibling.strip() if sibling else ""  # Значение
+                value_parts = []
+                node = element.next_sibling
+
+                while node:
+                    # стоп, если началось следующее поле
+                    if isinstance(node, Tag) and node.name == "span" and "post-b" in (node.get("class") or []):
+                        break
+
+                    # обычный перенос строки завершает текущее поле
+                    if isinstance(node, Tag) and node.name == "br":
+                        break
+
+                    # пропускаем служебные br-спаны
+                    if isinstance(node, Tag) and "post-br" in (node.get("class") or []):
+                        break
+
+                    if isinstance(node, NavigableString):
+                        text = str(node).strip()
+                        if text and text != ":":
+                            if text.startswith(":"):
+                                text = text[1:].strip()
+                            if text:
+                                value_parts.append(text)
+
+                    elif isinstance(node, Tag):
+                        text = node.get_text(" ", strip=True)
+                        if text and text != ":":
+                            value_parts.append(text)
+
+                    node = node.next_sibling
+
+                value = " ".join(value_parts).strip()
+                value = " ".join(value.split())  # схлопнуть лишние пробелы
+                if "одробные тех" in value:
+                    value = value.split("Подробные тех")[0]
                 data.append([key, value])
             return data
         return [['', "Ошибка: Не удалось загрузить контент с  Rutracker"]]
 
 
 if __name__ == '__main__':
-    p = Rutracker().get_tracker_list("PyCharm")
-    print(p[0].get_magnet, p[0].size)
+    p = Rutracker().get_tracker_list("Повелитель тайн")
+    print(p[0].get_magnet, p[0].size, p[0].get_other_data)
 
 

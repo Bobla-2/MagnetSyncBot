@@ -5,7 +5,17 @@ from module.torrent_tracker.TorrentInfoBase import ABCTorrentInfo, ABCTorrenTrac
 import module.crypto_token.config as config
 from module.logger.logger import SimpleLogger
 from module.other.singleton import singleton
+import re
 
+
+SEASON_RE = re.compile(
+    r'(?:'
+    r'(?:тв|tv)\s*-?\s*(\d{1,2})'   # ТВ-02, ТВ2, TV 03
+    r'|'
+    r'season\s*(\d{1,2})'          # Season 01
+    r')',
+    re.IGNORECASE
+)
 
 def _retries_retry_operation(func, *args, retries: int = 5, **kwargs):
     for attempt in range(retries):
@@ -105,6 +115,65 @@ class TorrentInfo(ABCTorrentInfo):
     @property
     def url(self) -> str:
         return self.__url
+
+    @property
+    def season(self) -> int:
+        m = SEASON_RE.search(self.__name)
+        return int(m.group(1) or m.group(2)) if m else 1
+
+    @property
+    def qualiti(self) -> str:
+        data_str = " ".join(f"{k} {v}" for k, v in self.get_other_data)
+        title = f"{self.__name} {data_str}"
+
+        if self.short_category == "music":
+            s = (title or "").lower()
+
+            patterns = [
+                r'\bflac\b',
+                r'\bmp3\b',
+                r'\baac\b',
+                r'\bogg\b',
+                r'\bopus\b',
+                r'\bwav\b',
+                r'\balac\b',
+                r'\bm4a\b',
+                r'\baiff\b',
+                r'\bwma\b',
+            ]
+
+            for pattern in patterns:
+                m = re.search(pattern, s, re.IGNORECASE)
+                if m:
+                    return m.group(0).upper()
+        if self.short_category == "cinema":
+            s = (title or "").lower()
+
+            patterns = [
+                r'\bbdremux\b',
+                r'\bbdrip\b',
+                r'\bbluray\b',
+                r'\bweb[-\s]?dl\b',
+                r'\bweb[-\s]?rip\b',
+                r'\bhdtv\b',
+                r'\bdvdrip\b',
+                r'\bdvd\b',
+                r'\bts\b',
+                r'\btc\b',
+                r'\bcamrip\b',
+                r'\bcam\b',
+            ]
+
+            for pattern in patterns:
+                m = re.search(pattern, s, re.IGNORECASE)
+                if m:
+                    return m.group(0).upper()
+
+        return ""
+
+    @property
+    def enable_magnet(self) -> bool:
+        return True
 
 
 class X1337(ABCTorrenTracker):
@@ -215,6 +284,7 @@ class _1337ParserPage:
             if link and link['href'].startswith('magnet:'):
                 return link['href']
         return None
+
 
     def get_other_data(self) -> list:
         self.__load_page()

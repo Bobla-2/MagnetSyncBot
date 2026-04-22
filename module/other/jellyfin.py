@@ -8,7 +8,7 @@ from module.logger.logger import SimpleLogger
 from module.other.singleton import singleton
 
 
-task_lock = threading.Lock()
+task_lock = threading.RLock()
 
 
 @singleton
@@ -26,10 +26,6 @@ class CreaterSymlinkManager:
         if self.__generator.client:
             return True
         return False
-
-    # def create_symlink(self, original_path, custam_name: str, progress_value, id: int | str, category: str) -> None:
-    #     SimpleLogger().log("[CreaterSymlinkManager] : self.task[str(id)]")
-    #     self.task[str(id)] = asyncio.create_task(self.__start_create_symlink(original_path, custam_name, progress_value, category))
 
     def create_symlink(self, original_path, custam_name, progress_value, id, category):
         stop_event = threading.Event()

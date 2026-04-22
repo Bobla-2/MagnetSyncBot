@@ -20,11 +20,10 @@ class ABCTorrentInfo(ABC):
         """Размер торрента (например, в MB, GB)."""
         pass
 
-    # @property
-    # @abstractmethod
-    # def full_info(self) -> str:
-    #     """Полная информация о торренте в формате .md."""
-    #     pass
+    @property
+    @abstractmethod
+    def get_other_data(self) -> list:
+        pass
 
     @property
     @abstractmethod
@@ -51,6 +50,21 @@ class ABCTorrentInfo(ABC):
     @property
     @abstractmethod
     def url(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def season(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def qualiti(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def enable_magnet(self) -> bool:
         pass
 
 

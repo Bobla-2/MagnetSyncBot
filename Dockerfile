@@ -16,8 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем файлы проекта в контейнер
 COPY . /app/
 
-# Открываем необходимые порты
-EXPOSE 8080 9091 10809
+VOLUME ["/magnetsyncbot_data"]
 
 RUN chmod +x /app/entrypoint.sh
 
