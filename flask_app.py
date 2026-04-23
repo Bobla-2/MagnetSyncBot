@@ -17,7 +17,7 @@ _last_error = ""
 _clients_by_id = {}
 _clients_lock = RLock()
 torrent_dowlander_lock = RLock()
-_CLIENT_TTL = 3600  # 1 час
+_CLIENT_TTL = 10000
 _downloads_cache = {
     "ts": 0.0,
     "items": []
@@ -171,7 +171,7 @@ def get_client_by_request():
             client = WebClient()
             _cleanup_old_clients()
             _clients_by_id[client_id] = client
-
+    client.last_active = time.time()
     return client, client_id, is_new
 
 def _cleanup_old_clients():

@@ -181,8 +181,8 @@ class Rutracker(ABCTorrenTracker):
             self.lock = RLock()
         SimpleLogger().log("[Rutracker] : start init")
         self.__rutracker = _retries_retry_operation(_Rutracker,
-                                                    username=config.login_rutreker,
-                                                    password=config.pass_rutreker,
+                                                    username=config.RUTRACKER_LOGIN,
+                                                    password=config.RUTRACKER_PASS,
                                                     proxy=config.proxy)
 
         if not self.__rutracker:
@@ -215,141 +215,6 @@ class Rutracker(ABCTorrenTracker):
                 return [TorrentInfo(name="Ошибка подключений к рутрекеру. Попробуйте ввести запрос заново")]
 
 
-
-class _Rutracker:
-    '''
-    Класс для взаимодействия с API Rutracker и выполнения поиска торрентов.
-
-    Атрибуты:
-    ----------
-    connected : bool
-        Флаг, указывающий, успешно ли выполнено подключение к Rutracker.
-
-    Методы:
-    -------
-    __init__(username: str, password: str, proxy: str):
-        Выполняет авторизацию на Rutracker с использованием предоставленных учетных данных и прокси.
-
-    get_search_list(search_request: str, page_deepth: int = 2) -> list[TorrentInfo]:
-        Выполняет поиск торрентов на Rutracker по заданному запросу. Возвращает список объектов `TorrentInfo`.
-    '''
-    def __init__(self, username: str, password: str, proxy: str):
-        """
-        Инициализирует объект _Rutracker, выполняя авторизацию на Rutracker.
-        """
-        self.__rutracker = RutrackerApi(proxy=proxy)
-        self.__rutracker.login(username, password)
-
-    def get_search_list(self, search_request: str, page_deepth: int = 1) -> list[ABCTorrentInfo]:
-        page = 1
-        search = self.__rutracker.search(search_request, "desc", "seeds", page)
-        search_results = search['result']
-        if search['total_pages'] > search['page'] and search['page'] != page_deepth:
-            page += 1
-            search = self.__rutracker.search(search_request, "desc", "seeds", page)
-            search_results += search['result']
-        torrent_list = [TorrentInfo(name=res["title"],
-                                    category=res["category"],
-                                    url=res["url"],
-                                    size=round(res["size"]/1048576, 2)) for res in search_results]
-        print(f"get_search_list : {torrent_list}")
-        return torrent_list
-
-
-class RutrackerParserPage:
-    """
-    Простой парсер страниц рутрекера
-    """
-    def __init__(self, url):
-        self.url = url
-        self.__soup = None
-
-    def __load_page(self):
-        """
-        Внутренний метод, скачивающий html файл страници
-        Нужно вызывать во всех функциях
-        """
-        if not self.__soup and self.url:
-            proxies = {'http': config.proxy,
-                       'https': config.proxy}
-            self.__soup = _retries_retry_operation(self.__loader, url=self.url, proxies=proxies)
-
-    def __loader(self, url: str, proxies):
-        response = requests.get(url, proxies=proxies, timeout=(5, 10))
-        response.raise_for_status()
-        page_content = response.text
-        return BeautifulSoup(page_content, "html.parser")
-
-    def get_magnet_link(self) -> str:
-        self.__load_page()
-        if self.__soup:
-            magnet_link_tag = self.__soup.find('a', href=lambda href: href and href.startswith('magnet:'))
-            if magnet_link_tag:
-                return magnet_link_tag['href']
-        return ""
-
-
-    def get_size(self) -> str:
-        self.__load_page()
-        if self.__soup:
-            size_element = self.__soup.find("li", text=lambda t: t and ("GB" in t or "MB" in t))
-            if size_element:
-                size_text = size_element.get_text(strip=True)
-                return size_text
-        return "Не удалось загрузить контент с Rutracker"
-
-    def get_other_data(self) -> list:
-        self.__load_page()
-        if self.__soup:
-            post_body = self.__soup.find("div", class_="post_body")
-
-            if not post_body:
-                return [['', "Ошибка: Не удалось загрузить контент с  Rutracker"]]
-            data = []
-            # print(post_body.find_all("span", class_="post-b"))
-            for element in post_body.find_all("span", class_="post-b"):
-                key = element.get_text(" ", strip=True).rstrip(":")
-                if not key:
-                    continue
-
-                value_parts = []
-                node = element.next_sibling
-
-                while node:
-                    # стоп, если началось следующее поле
-                    if isinstance(node, Tag) and node.name == "span" and "post-b" in (node.get("class") or []):
-                        break
-
-                    # обычный перенос строки завершает текущее поле
-                    if isinstance(node, Tag) and node.name == "br":
-                        break
-
-                    # пропускаем служебные br-спаны
-                    if isinstance(node, Tag) and "post-br" in (node.get("class") or []):
-                        break
-
-                    if isinstance(node, NavigableString):
-                        text = str(node).strip()
-                        if text and text != ":":
-                            if text.startswith(":"):
-                                text = text[1:].strip()
-                            if text:
-                                value_parts.append(text)
-
-                    elif isinstance(node, Tag):
-                        text = node.get_text(" ", strip=True)
-                        if text and text != ":":
-                            value_parts.append(text)
-
-                    node = node.next_sibling
-
-                value = " ".join(value_parts).strip()
-                value = " ".join(value.split())  # схлопнуть лишние пробелы
-                if "одробные тех" in value:
-                    value = value.split("Подробные тех")[0]
-                data.append([key, value])
-            return data
-        return [['', "Ошибка: Не удалось загрузить контент с  Rutracker"]]
 
 
 if __name__ == '__main__':

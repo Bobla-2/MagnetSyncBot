@@ -38,8 +38,8 @@ PASS_TG = "1234567"
 ENABLE_WHITE_LIST = True
 WHITE_LIST = []       # id telegram
 ######################### - rutecker - #########################
-login_rutreker = "login"
-pass_rutreker = "pass"
+RUTRACKER_LOGIN = "login"
+RUTRACKER_PASS = "pass"
 ######################### - poiskkino - #########################
 ENABLE_KINOPOISK = True
 KINOPOISK_BASE_URL = "https://api.poiskkino.dev/v1.4/movie/search"
