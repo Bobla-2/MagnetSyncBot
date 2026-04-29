@@ -45,9 +45,7 @@ class TorrentSQLiteCache:
             """)
 
             cur.execute("CREATE INDEX IF NOT EXISTS idx_name ON torrents(name)")
-
             self.conn.commit()
-
     # ----------------------------
     # SAVE
     # ----------------------------
@@ -105,7 +103,6 @@ class TorrentSQLiteCache:
                 url
             ))
             self.conn.commit()
-
     # ----------------------------
     # LOAD
     # ----------------------------
@@ -121,13 +118,11 @@ class TorrentSQLiteCache:
                 ORDER BY cached_at_fast DESC
                 LIMIT 50
             """, (tracker, f"%{query}%"))
-
         return [dict(r) for r in cursor.fetchall()]
 
     def search(self, query: str, tracker: str = None, limit: int = 100):
         with self.lock:
             cur = self.conn.cursor()
-
             if tracker:
                 cur.execute("""
                 SELECT *
@@ -145,7 +140,6 @@ class TorrentSQLiteCache:
                 ORDER BY cached_at_fast DESC
                 LIMIT ?
                 """, (f"%{query}%", limit))
-
         return [dict(r) for r in cur.fetchall()]
 
     # ----------------------------
@@ -155,18 +149,14 @@ class TorrentSQLiteCache:
         with self.lock:
             cursor = self.conn.cursor()
             now = int(time.time())
-
             cursor.execute("""
                 DELETE FROM torrents
                 WHERE cached_at_fast < ?
             """, (now - max_age_sec,))
-
             self.conn.commit()
-
     # ----------------------------
     # utils
     # ----------------------------
-
 
 
 class TorrentInfo(ABCTorrentInfo):
@@ -174,7 +164,6 @@ class TorrentInfo(ABCTorrentInfo):
     DTO объект торрента (только данные из БД / парсера).
     НИКАКОЙ сети внутри.
     """
-
     __slots__ = (
         '__category', '__name', '__year', '__url',
         '__id_torrent', '__size', '__seeds', '__leeches',
@@ -240,9 +229,6 @@ class TorrentInfo(ABCTorrentInfo):
     def id_torrent(self, id_: str | int):
         self.__id_torrent = id_
 
-    # -------------------------
-    # DATA
-    # -------------------------
     @property
     def get_other_data(self) -> list:
         """
@@ -268,9 +254,6 @@ class TorrentInfo(ABCTorrentInfo):
             dt.insert(2, ["Сезон", self.__season])
         return dt
 
-    # -------------------------
-    # META
-    # -------------------------
     @property
     def short_category(self) -> str:
         return self.__short_categories or "other"
@@ -309,7 +292,7 @@ class LocalTorrentSearch:
 
     def get_tracker_list(self, query: str, limit: int = 200) -> list[TorrentInfo]:
         rows = self.cache.search(query=query, limit=limit)
-        return self._to_objects(rows)
+        return self._to_objects(rows)[:50]
 
     def _to_objects(self, rows: list[dict]) -> list[TorrentInfo]:
         result = []

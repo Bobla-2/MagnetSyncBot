@@ -1,4 +1,7 @@
 from threading import RLock
+
+from soupsieve.util import lower
+
 from telegram_app import Client
 from flask import Flask, jsonify, render_template, request
 from module.logger.logger import SimpleLogger
@@ -30,7 +33,7 @@ class WebClient(Client):
         self.lock = RLock()
         self._in_lock = RLock()
         self.last_active = ''
-        self.__bd = TorrentSQLiteCache() if "local" in config.TRACKERS else None
+        self.__bd = TorrentSQLiteCache() if "local" in list(map(lower, config.TRACKERS)) else None
         super().__init__()
 
     def web_prepare_search_meta(self) -> None:

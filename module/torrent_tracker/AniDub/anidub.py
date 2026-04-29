@@ -63,7 +63,8 @@ class TorrentInfo(ABCTorrentInfo):
     @property
     def get_other_data(self) -> str:
         data = self.__parser.get_other_data()
-        data = [["seeds", self.__parser.get_seeders()]] + data
+        size = self.__parser.get_size()
+        data = [["Вес", size], ["seeds", self.__parser.get_seeders()]] + data
         return data
 
     @property
