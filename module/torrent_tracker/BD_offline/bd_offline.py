@@ -46,9 +46,7 @@ class TorrentSQLiteCache:
 
             cur.execute("CREATE INDEX IF NOT EXISTS idx_name ON torrents(name)")
             self.conn.commit()
-    # ----------------------------
-    # SAVE
-    # ----------------------------
+
     def save_fast(self, torrents: list[ABCTorrentInfo]):
         with self.lock:
             cursor = self.conn.cursor()
@@ -103,9 +101,7 @@ class TorrentSQLiteCache:
                 url
             ))
             self.conn.commit()
-    # ----------------------------
-    # LOAD
-    # ----------------------------
+
     def load_list(self, tracker: str, query: str) -> list[dict]:
         with self.lock:
             cursor = self.conn.cursor()
@@ -142,9 +138,6 @@ class TorrentSQLiteCache:
                 """, (f"%{query}%", limit))
         return [dict(r) for r in cur.fetchall()]
 
-    # ----------------------------
-    # CLEAR OLD CACHE
-    # ----------------------------
     def clean_old(self, max_age_sec: int = 3600 * 24 * 30):
         with self.lock:
             cursor = self.conn.cursor()
@@ -154,9 +147,6 @@ class TorrentSQLiteCache:
                 WHERE cached_at_fast < ?
             """, (now - max_age_sec,))
             self.conn.commit()
-    # ----------------------------
-    # utils
-    # ----------------------------
 
 
 class TorrentInfo(ABCTorrentInfo):
@@ -202,9 +192,6 @@ class TorrentInfo(ABCTorrentInfo):
         self.__qualiti = qualiti or ""
         self.__season = season or 1
 
-    # -------------------------
-    # CORE
-    # -------------------------
     @property
     def get_magnet(self) -> str:
         return self.__magnet
@@ -236,12 +223,9 @@ class TorrentInfo(ABCTorrentInfo):
         """
         dt = [
             ["Вес", self.__size],
-            # ["id", self.__id],
             ["Категория", self.__category],
             ["magnet", self.__magnet],
-            # ["name", self.__name],
             ["Год", self.__year],
-            # ["url", self.__url],
             ["seeds", self.__seeds],
             ["leeches", self.__leeches],
             ["short_category", self.__short_categories],
@@ -273,26 +257,18 @@ class TorrentInfo(ABCTorrentInfo):
     def enable_magnet(self) -> bool:
         return not self.__magnet is None
 
-    # -------------------------
-    # OPTIONAL DEBUG
-    # -------------------------
     def __repr__(self):
-        return f"TorrentInfo(name={self.__name}, size={self.__size}, seeds={self.__seeds})"
-
+        return f"{self.__name} ({self.__size})"
 
 @singleton
 class LocalTorrentSearch:
-    """
-    Только поиск по локальной БД.
-    НИКАКИХ HTTP, НИКАКИХ сохранений.
-    """
 
     def __init__(self):
         self.cache = TorrentSQLiteCache()
 
-    def get_tracker_list(self, query: str, limit: int = 200) -> list[TorrentInfo]:
+    def get_tracker_list(self, query: str, limit: int = 50) -> list[TorrentInfo]:
         rows = self.cache.search(query=query, limit=limit)
-        return self._to_objects(rows)[:50]
+        return self._to_objects(rows)
 
     def _to_objects(self, rows: list[dict]) -> list[TorrentInfo]:
         result = []
@@ -301,25 +277,17 @@ class LocalTorrentSearch:
                 TorrentInfo(
                     url=r.get("url"),
                     id=r.get("id"),
-
                     name=r.get("name"),
                     size=r.get("size"),
-
                     seeds=r.get("seeds"),
                     leeches=r.get("leeches"),
-
                     year=r.get("year"),
                     category=r.get("category"),
-
                     short_categories=r.get("short_category"),
-
                     magnet=r.get("magnet"),
-
                     data=json.loads(r["other_data"]) if r.get("other_data") else [],
-
                     qualiti=r.get("qualiti"),
                     season=r.get("season"),
                 )
             )
-
         return result

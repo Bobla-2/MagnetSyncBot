@@ -6,6 +6,8 @@ from module.logger.logger import SimpleLogger
 import traceback
 
 
+print("Starting Bot...")
+
 if __name__ == '__main__':
     SimpleLogger().log(f"[main] : config.UI_MODE =  {config.UI_MODE.lower()}")
     if config.UI_MODE.lower() == "web":
@@ -21,8 +23,11 @@ if __name__ == '__main__':
                 tg_bot.run()
             except Exception as e:
                 SimpleLogger().log(f"[main] : tg_bot.run() ERROR {e}")
-                time.sleep(1)
+                time.sleep(10)  # Increase sleep duration for retrying
+                print("ERROR")
+
     else:
         pass
+
 
 

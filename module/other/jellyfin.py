@@ -11,6 +11,11 @@ from module.other.singleton import singleton
 task_lock = threading.RLock()
 
 
+VIDEO_EXTS = {
+    "mkv", "mp4", "avi", "mov", "wmv",
+    "flv", "webm", "m4v", "mpg", "mpeg"
+}
+
 @singleton
 class CreaterSymlinkManager:
     def __init__(self):
@@ -74,11 +79,17 @@ class CreaterSymlinkManager:
         target_path = f'{jellyfin_dir}/{custam_name}'
         split_orig_name = orig_name.rsplit(".", 1)
         if len(split_orig_name) >= 2:
-            ext = split_orig_name[1]
-            if category == "cinema":
-                target_path = f'{target_path}/{custam_name}'
-            if ext and len(ext) <= 5 and ext[0].isalpha() and ext.isalnum():
-                target_path = f'{target_path}.{ext}'
+            ext = split_orig_name[1].lower()
+            if ext in VIDEO_EXTS and category in ["cinema", "anime"]:
+                target_path = f"{target_path}/{custam_name}.{ext}"
+            else:
+                pass
+
+
+            # if category == "cinema":
+            #     target_path = f'{target_path}/{custam_name}'
+            # if ext and len(ext) <= 5 and ext[0].isalpha() and ext.isalnum():
+            #     target_path = f'{target_path}.{ext}'
         original_path = original_path.replace('//', '/').replace('\\', '/')
         target_path = target_path.replace('//', '/').replace('\\', '/')
 
@@ -166,7 +177,7 @@ class SSHSymlinkCreator:
 
 # Пример использования
 if __name__ == "__main__":
-    original_path = "/srv/dev-disk-by-uuid-a8856494-378f-4839-8243-5aa883ea0730/C/download/1_anime/Oshi no .K.o.mkv"
+    original_path = "/srv/dev-disk-by-uuid-a8856494-378f-4839-8243-5aa883ea0730/C/download/1_cinema/Arcane.S01.WEBDL.1080p.Rus.Eng"
     custam_name = "name2"
     category = "cinema"
     path, orig_name = original_path.rsplit("/", 1)
@@ -188,3 +199,7 @@ if __name__ == "__main__":
     target_path = re.sub(r'[:*?"<>|]', '', target_path)
     relative_path = os.path.relpath(original_path, start=os.path.dirname(target_path))
     relative_path = re.sub(r'[:*?"<>|]', '', relative_path)
+
+#     "-by-uuid-a8856494-378f-4839-8243-5aa883ea0730/C/downloads/1_cinema/Arcane.S01.WEBDL.1080p.Rus.Eng
+# [SSHSymlinkCreator] : ln -s "../../../../../downloads/1_cinema/Arcane.S01.WEBDL.1080p.Rus.Eng" "/srv/dev-disk-by-uuid-a8856494-378f-4839-8243-5aa883ea0730/C/DLNA/1_cinema/Arcane League of Legends/Season 01/Arcane League of Legends/Season 01.Eng"
+# [SSHSymlinkCreator] : "

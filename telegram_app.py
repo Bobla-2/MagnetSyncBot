@@ -29,7 +29,6 @@ class ClientStatus:
         self.bot_msg_id = None
         self.num_torrents: int | None = None
 
-
 class Client:
     def __init__(self, torrent_settings: list = None):
         self.user_states: ClientStatus = ClientStatus()

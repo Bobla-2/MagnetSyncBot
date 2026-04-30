@@ -54,7 +54,6 @@ class TorrentInfo(ABCTorrentInfo):
     @property
     def size(self) -> str:
         return ''
-        # return self.__parser.get_size()
 
     @property
     def get_magnet(self) -> str:

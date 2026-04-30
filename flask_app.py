@@ -1,7 +1,5 @@
 from threading import RLock
-
 from soupsieve.util import lower
-
 from telegram_app import Client
 from flask import Flask, jsonify, render_template, request
 from module.logger.logger import SimpleLogger
@@ -12,8 +10,6 @@ import time
 from module.torrent_tracker.BD_offline.bd_offline import TorrentSQLiteCache
 
 
-
-# config.JELLYFIN_ENABLE = False
 logger = SimpleLogger()
 app = Flask(__name__)
 _last_error = ""
@@ -23,7 +19,8 @@ torrent_dowlander_lock = RLock()
 _CLIENT_TTL = 10000
 _downloads_cache = {
     "ts": 0.0,
-    "items": []
+    "items": [],
+    "space_info": "NA"
 }
 
 CLIENT_COOKIE_NAME = "magnetsync_client_id"
@@ -40,7 +37,6 @@ class WebClient(Client):
         if not self.list_torrent_info:
             self.true_name_jellyfin = ''
             return
-
         categories = [torrent_info.short_category for torrent_info in self.list_torrent_info]
         db_data = self.db_manager.get_info_text_and_names(
             categories,
@@ -53,10 +49,8 @@ class WebClient(Client):
         out = []
         if not self.list_torrent_info:
             return out
-
         for num, torrent_info in enumerate(self.list_torrent_info):
             data = {
-                # "size": torrent_info.size,
                 "Категория": torrent_info.short_category,
             }
             if torrent_info.size:
@@ -84,21 +78,36 @@ class WebClient(Client):
         SimpleLogger().log(f"[WebClient] : num={num}, other={other}, arg_param={arg_param}")
         if not self.torrent_client:
             raise RuntimeError("Ошибка подключения к торрент клиенту")
-
         if num < 0 or num >= self.get_torrent_info_list_len():
             raise ValueError(f"Номер {num} отсутствует")
 
         self.start_download_torrent(num)
-
         if not self.selected_torrent_info.id_torrent:
             raise RuntimeError("Не удалось добавить торрент в клиент")
 
         if other == 'jl':
             self.create_symlink(num, arg_param=arg_param)
+
         if self.__bd:
-            data = self.list_torrent_info[num].get_other_data
-            magnet = self.list_torrent_info[num].get_magnet
-            self.__bd.save_full(self.list_torrent_info[num].url, magnet, data)
+            torrent = self.list_torrent_info[num]
+            self.__bd.save_full(
+                url=torrent.url,
+                magnet=torrent.get_magnet,
+                other_data=torrent.get_other_data
+            )
+
+    def get_free_space(self):
+        if not self.torrent_client:
+            return "NA"
+        free_space = self.torrent_client.free_spase()
+        if not free_space:
+            return "NA"
+        out = ''
+        for sp in free_space:
+            out += f"{sp:.1f}/"
+        out = f"{out[:-1]}TB"
+        return out
+
 
     def web_get_active_torrents(self) -> list[dict]:
         if not self.torrent_client:
@@ -107,7 +116,6 @@ class WebClient(Client):
         out = []
         if not self.list_active_torrent:
             return out
-
         for num, torrent in enumerate(self.list_active_torrent):
             out.append({
                 "num": num,
@@ -125,31 +133,37 @@ class WebClient(Client):
         self.list_active_torrent = self.torrent_client.get_list_active_torrents()
 
     def get_full_info_torrent(self, num: int) -> str:
-        if not self.list_torrent_info:
+        if not self.list_torrent_info or num < 0 or num >= len(self.list_torrent_info):
             return "Ничего не найдено"
+
         with self._in_lock:
-            data = self.list_torrent_info[num].get_other_data
+            torrent = self.list_torrent_info[num]
+            data = torrent.get_other_data
             if self.__bd:
-                magnet = self.list_torrent_info[num].get_magnet
-                self.__bd.save_full(self.list_torrent_info[num].url, magnet, data)
-        data_str = []
+                self.__bd.save_full(torrent.url, torrent.get_magnet, data)
+
+        lines = []
         current_length = 0
-        for dt in data:
-            string = f"{dt[0]}: {dt[1]}"
-            data_str.append(string)
-            current_length += len(string)
+        for key, value in data:
+            line = f"{key}: {value}"
+            lines.append(line)
+            current_length += len(line)
             if current_length > 1950:
                 break
-        res = "\n".join(data_str)
-        return (f"{res}\n")
+
+        return "\n".join(lines) + "\n"
 
     def get_default_path_jellyfin(self, num: int) -> str:
-        if not self.list_torrent_info:
+        if not self.list_torrent_info or num < 0 or num >= len(self.list_torrent_info):
             return ""
-        if self.list_torrent_info[num].short_category == "anime":
-            return f"{self.true_name_jellyfin}/Season 0{self.list_torrent_info[num].season}"
-        else:
-            return f"{self.true_name_jellyfin}"
+
+        torrent = self.list_torrent_info[num]
+        base_path = self.true_name_jellyfin
+        if torrent.short_category == "anime":
+            # Форматируем сезон с ведущим нулем (например, Season 01)
+            return f"{base_path}/Season {self.list_torrent_info[num].season:02d}"
+
+        return base_path
 
 
 cln_for_dwns = WebClient()
@@ -167,7 +181,6 @@ def get_or_create_client_id():
 
 def get_client_by_request():
     client_id, is_new = get_or_create_client_id()
-
     with _clients_lock:
         client = _clients_by_id.get(client_id)
         if client is None:
@@ -196,14 +209,6 @@ def make_json_response(payload: dict, client_id: str = None, is_new: bool = Fals
         )
     return response
 
-# def get_client():
-#     global _client
-#
-#     if _client is None:
-#         _client = build_web_client()
-#
-#     return _client
-
 
 @app.route("/")
 def index():
@@ -212,10 +217,8 @@ def index():
 @app.get("/api/search/last")
 def api_search_last():
     global _last_error
-
     try:
         client, client_id, is_new = get_client_by_request()
-        # with client.lock:
         with client.lock:
             items = client.web_get_search_results()
             jl_name = client.get_default_name_jellyfin()
@@ -256,7 +259,6 @@ def api_search():
 
         if  items and "Ошибка поиска. Попробуйте снова" in items[0].get("name"):
             items = []
-        # print("/api/search")
         return make_json_response({
             "ok": True,
             "items": items,
@@ -265,7 +267,6 @@ def api_search():
         }, client_id, is_new)
 
     except Exception as e:
-
         client, client_id, is_new = get_client_by_request()
         _last_error = str(e)
         logger.log(f"[WEB] api_search: {e}")
@@ -363,14 +364,18 @@ def api_downloads():
         with torrent_dowlander_lock:
             if (now - _downloads_cache["ts"]) < 5:
                 items = _downloads_cache["items"]
+                space_info = _downloads_cache["space_info"]
             else:
                 items = cln_for_dwns.web_get_active_torrents()
+                space_info = cln_for_dwns.get_free_space()
                 _downloads_cache["items"] = items[:50]
                 _downloads_cache["ts"] = now
+                _downloads_cache["space_info"] = space_info
 
         return jsonify({
             "ok": True,
             "items": items,
+            "space_info": space_info,
             "count": len(items),
         })
 

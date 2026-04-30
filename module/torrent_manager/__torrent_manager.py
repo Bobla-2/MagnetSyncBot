@@ -68,14 +68,29 @@ class TorrentManager(ABC):
     def delete_torrent(self, id: int) -> None:
         pass
 
+    @abstractmethod
+    def free_spase(self) -> list[float]:
+        pass
+
+
 
 class TransmissionManager(TorrentManager):
-    def __init__(self, host, port, username, password, protocol='http'):
+    def __init__(self, host: str, port: int, username: str, password: str, protocol: str = 'http'):
         self.__client = TransmissionClient(host=host, port=port, username=username, password=password,
                                            protocol=protocol)
         self.__id_last: int = 0
         time.sleep(1)
         self.__default_dir = config.TORRENT_FOLDER_OTHER
+        # self.free_spase([])
+
+    def free_spase(self) -> list[float]:
+        out = []
+        for disk in config.TORRENT_DISK:
+            free_bytes = self.__client.free_space(disk)
+            free_gb = free_bytes / (1024 ** 4)
+            out.append(free_gb)
+        # print(f"Свободно: {free_gb:.2f} TB")
+        return out
 
     def start_download(self, magnet_url: str, folder: str = "") -> int:
         if magnet_url != "":
@@ -151,6 +166,14 @@ class QBittorrentManager(TorrentManager):
         self.__client.auth_log_in()
         self.__id_last: str = ""
         self.__default_dir = config.TORRENT_FOLDER_OTHER
+
+    def free_spase(self) -> list[float]:
+        try:
+            data = self.__client.sync.maindata()
+            free_bytes = data.server_state.free_space_on_disk
+            return [free_bytes / (1024 ** 4)]
+        except:
+            return []
 
 
     def start_download(self, magnet_url: str, folder: str = '') -> str:
@@ -243,4 +266,9 @@ class QBittorrentManager(TorrentManager):
         except Exception as e:
             SimpleLogger().log(f"[QBittorrentManager] : Ошибка при удалении торрента: {e}")
 
-
+if __name__ == '__main__':
+    TransmissionManager(host=config.tornt_cli_host,
+                        port=config.tornt_cli_port,
+                        username=config.tornt_cli_login,
+                        password=config.tornt_cli_pass,
+                        protocol="http")

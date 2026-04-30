@@ -18,6 +18,8 @@ SEASON_RE = re.compile(
     r'(?:тв|tv)\s*-?\s*(\d{1,2})'   # ТВ-02, ТВ2, TV 03
     r'|'
     r'season\s*(\d{1,2})'          # Season 01
+    r'|'
+    r'сезон\s*:?\s*(\d{1,2})'       # Сезон: 2, сезон 2
     r')',
     re.IGNORECASE
 )
@@ -287,7 +289,6 @@ class RutrackerParserPage:
                 return magnet_link_tag['href']
         return ""
 
-
     def get_size(self) -> str:
         self.__load_page()
         if self.__soup:
@@ -301,19 +302,15 @@ class RutrackerParserPage:
         self.__load_page()
         if self.__soup:
             post_body = self.__soup.find("div", class_="post_body")
-
             if not post_body:
                 return [['', "Ошибка: Не удалось загрузить контент с  Rutracker"]]
             data = []
-            # print(post_body.find_all("span", class_="post-b"))
             for element in post_body.find_all("span", class_="post-b"):
                 key = element.get_text(" ", strip=True).rstrip(":")
                 if not key:
                     continue
-
                 value_parts = []
                 node = element.next_sibling
-
                 while node:
                     # стоп, если началось следующее поле
                     if isinstance(node, Tag) and node.name == "span" and "post-b" in (node.get("class") or []):
@@ -349,6 +346,7 @@ class RutrackerParserPage:
                 data.append([key, value])
             return data
         return [['', "Ошибка: Не удалось загрузить контент с  Rutracker"]]
+
 
 if __name__ == '__main__':
     p = Rutracker().get_tracker_list("Повелитель тайн")

@@ -1,52 +1,57 @@
 import os
 
-######################### - UI - #########################
-UI_MODE = "web"   # web / tg
-
-######################### - proxy - #########################
+######################### - Интерфейс (UI) - #########################
+UI_MODE = "web"   # Режим работы: "web" или "tg" (Telegram)
+######################### - Настройки прокси - #########################
 proxy = 'http://127.0.0.1:10808'
 
+######################### - Базовые URL ресурсов - #########################
 X1337_BASE_URL = 'https://1337x.to'
 ANILIBRIA_BASE_URL = 'https://aniliberty.top'
 ANIDUB_BASE_URL = 'https://tr.anidub.com'
 RUTRACKER_FORUM_URL = 'https://rutracker.org/forum'
 NMCLUB_BASE_URL = "https://nnmclub.to"
+RUTOR_BASE_URL = "https://rutor.org"
+######################### - Настройки базы данных и трекеров - #########################
 BD_PATH = os.getenv("BD_PATH", "./torrents.bd")
-TRACKERS = ["Rutracker", "NnmClub", "AniDub", "Anilibria", "Local"] # "1337x"
-######################### - torrent client default - #########################
+TRACKERS = ["Rutracker", "NnmClub", "AniDub", "Anilibria", "Local"] # Список доступных трекеров
+
+######################### - Настройки торрент-клиента по умолчанию - #########################
 tornt_cli_host = "127.0.0.1"
 tornt_cli_port = 9091
 tornt_cli_type = "transmission"  # можно transmission/qbittorrent
 tornt_cli_login = "transmission"
 tornt_cli_pass = "transmission"
 
-TORRENT_FOLDER_OTHER = "/downloads/1_other"       # абсолютный путь, в куда качаются торренты
-TORRENT_FOLDER_SOFT = "/downloads/1_soft"
-TORRENT_FOLDER_GAME = "/downloads/1_game"
-TORRENT_FOLDER_CINEMA = "/downloads/1_cinema"
-TORRENT_FOLDER_ANIME = "/downloads/1_anime"
-TORRENT_FOLDER_MUSIC = "/downloads/1_music"
+######################### - Пути для загрузки (папки) - #########################
+TORRENT_FOLDER_OTHER = "/downloads/1_other"       # Папка для прочего контента
+TORRENT_FOLDER_SOFT = "/downloads/1_soft"         # Папка для программного обеспечения
+TORRENT_FOLDER_GAME = "/downloads/1_game"         # Папка для игр
+TORRENT_FOLDER_CINEMA = "/downloads/1_cinema"     # Папка для фильмов
+TORRENT_FOLDER_ANIME = "/downloads/1_anime"       # Папка для аниме
+TORRENT_FOLDER_MUSIC = "/downloads/1_music"       # Папка для музыки
 
-######################### - telegram - #########################
+TORRENT_DISK = [TORRENT_FOLDER_OTHER] # уникальные диски
+######################### - Настройки Telegram бота - #########################
 tg_token = "xxxxxxxxxxx"
 
-# пароль для входа с настройками по умолчанию (/start {pass})
+# Авторизация: если True, требует ввода пароля при команде /start {pass}
 ENABLE_PASS_TG = True
 PASS_TG = "1234567"
 
-# пользовотелей из WHITE_LIST пускает без пароля
+# Белый список: если True, пользователи из WHITE_LIST пускаются без пароля
 ENABLE_WHITE_LIST = True
-WHITE_LIST = []       # id telegram
-######################### - rutecker - #########################
+WHITE_LIST = []       # Список Telegram ID пользователей
+######################### - Настройки Rutracker - #########################
 RUTRACKER_LOGIN = "login"
 RUTRACKER_PASS = "pass"
-######################### - poiskkino - #########################
+######################### - Интеграция с Kinopoisk API - #########################
 ENABLE_KINOPOISK = True
 KINOPOISK_BASE_URL = "https://api.poiskkino.dev/v1.4/movie/search"
 API_TOKEN_KINOPOISK = 'xxxxxxxx'
 
-######################### - jellyfin - #########################
-JELLYFIN_ENABLE = True    # создание симлинков для jellyfin не работает
+######################### - Настройки Jellyfin (DLNA) - #########################
+JELLYFIN_ENABLE = True    # Включение создания путей для Jellyfin (симлинков)
 
 JELLYFIN_FOLDER_OTHER = "/DLNA/1_other"
 JELLYFIN_FOLDER_SOFT = "/DLNA/1_soft"
@@ -67,18 +72,18 @@ SYMLINK_PASS = 'pass'
 ################################################################################
 
 
-# настройки сортировщика
-# он должен состоять из [[список категорий], относительный путь куда симлинк, тип сортировки]
-# тип сортировки может быть: "==" -> категория должна совпадать; "in" -> категория должна содержать ключевое слово
-# СОРТИРОВЩИК ПЕРЕЕХАЛ В САМЫЙ НИЗ
+# Настройки правил сортировки.
+# Структура элемента списка: [список_ключевых_слов, путь_загрузки, тип_сравнения, путь_симлинка]
+# Пример: [['lossless', 'Lossless', 'Hi-Res'], TORRENT_FOLDER_MUSIC, "in", JELLYFIN_FOLDER_MUSIC]
+# Типы сравнения:
+#   "==" — точное совпадение категории;
+#   "in" — категория должна содержать одно из ключевых слов.
 
 
 
 ################################################################################
 ################################################################################
 ################################################################################
-
-
 
 
 categories_cinema_rutr = [

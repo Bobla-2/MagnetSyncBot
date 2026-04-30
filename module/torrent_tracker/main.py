@@ -19,26 +19,32 @@ class TorrentTracker:
         self.__local = LocalTorrentSearch() if "local" in TRACKERS else None
         self.__bd = TorrentSQLiteCache() if "local" in TRACKERS else None
 
+
     def get_tracker_list(self, title: str, resource: str) -> list[ABCTorrentInfo]:
         resource = resource.lower()
-        if "1337" in resource and self.__x1337:
-            data = self.__x1337.get_tracker_list(title)
-        elif "rutracker" in resource and self.__rutecker:
-            data = self.__rutecker.get_tracker_list(title)
-        elif "anilibria" in resource and self.__anilibria:
-            data = self.__anilibria.get_tracker_list(title)
-        elif "anidub" in resource and self.__anidub:
-            data = self.__anidub.get_tracker_list(title)
-        elif "nnmclub" in resource and self.__nmclub:
-            data = self.__nmclub.get_tracker_list(title)
-        elif "local" in resource and self.__local:
-            return self.__local.get_tracker_list(title)
-        else:
+        # Маппинг ключевых слов ресурса к соответствующим атрибутам трекеров
+        trackers_map = {
+            "1337": self.__x1337,
+            "rutracker": self.__rutecker,
+            "anilibria": self.__anilibria,
+            "anidub": self.__anidub,
+            "nnmclub": self.__nmclub,
+            "local": self.__local
+        }
+        # Поиск подходящего трекера по ключу в resource
+        active_tracker = None
+        for key, tracker in trackers_map.items():
+            if key in resource and tracker:
+                active_tracker = tracker
+                break
+        if not active_tracker:
             raise Exception(f"[TorrentTracker] : трекера не существует: {resource}")
-
+        data = active_tracker.get_tracker_list(title)
         if self.__bd and data:
             if len(data) == 1 and re.search( r"(?i)\b(ошибк\w*|не найдено)\b", data[0].name):
                 pass
             else:
                 self.__bd.save_fast(data)
+
         return data
+

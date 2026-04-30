@@ -7,6 +7,14 @@
     let currentMobilePanel = "results";
     let lastIsMobileView = window.innerWidth <= 900;
 
+
+
+     const infoDialog = document.getElementById("infoDialog");
+    const infoDialog_onlyLook = document.getElementById("infoDialog_onlyLook");
+    const errorDialog = document.getElementById("errorDialog");
+    const deleteDialog = document.getElementById("deleteDialog");
+    const inputDialog = document.getElementById("inputDialog");
+
     function setStatus(text) {
         document.getElementById("statusBar").textContent = text || "";
     }
@@ -104,9 +112,10 @@
         return `<div class="result-meta">${extra}</div>`;
     }
 
-    function renderDownloads(items) {
+    function renderDownloads(data) {
         const root = document.getElementById("downloads");
-        document.getElementById("downloadsInfo").textContent = `Активные: ${items.length}`;
+        items = data.items
+        document.getElementById("downloadsInfo").textContent = `F:${data.space_info}, Актив: ${data.count}`;
 
         if (!items.length) {
             root.innerHTML = '<div class="muted">Нет активных торрентов</div>';
@@ -215,6 +224,50 @@
     }
 }
 
+function openInputDialog(title, preset = "") {
+    return new Promise((resolve) => {
+        const dialog = inputDialog;
+        const textarea = document.getElementById("inputDialogTextarea");
+        const confirmBtn = document.getElementById("inputConfirm");
+        const titleEl = dialog.querySelector("h3");
+
+        titleEl.textContent = title;
+        textarea.value = preset || "";
+
+        let resolved = false;
+
+        function cleanup() {
+            confirmBtn.removeEventListener("click", onConfirm);
+            dialog.removeEventListener("close", onClose);
+        }
+
+        function onConfirm() {
+            if (resolved) return;
+            resolved = true;
+
+            const value = textarea.value;
+            cleanup();
+            dialog.close();
+            resolve(value);
+        }
+
+        function onClose() {
+            if (resolved) return;
+            resolved = true;
+
+            cleanup();
+            resolve(null);
+        }
+
+        confirmBtn.addEventListener("click", onConfirm);
+        dialog.addEventListener("close", onClose);
+
+        dialog.showModal();
+        textarea.focus();
+        textarea.select();
+    });
+}
+
     async function startDownload(num, withAction) {
         let namePath = null;
         let preset = "";
@@ -233,7 +286,7 @@
                 setStatus(e.message);
             }
 
-            const entered = prompt("Имя/путь для доп. действия:", preset);
+            const entered = await openInputDialog("Имя/путь для ссылки:", preset);
 
             if (entered === null) {
                 return;
@@ -265,7 +318,7 @@
     async function loadDownloads() {
         try {
             const data = await api("/api/downloads");
-            renderDownloads(data.items);
+            renderDownloads(data);
         } catch (e) {
             setStatus(e.message);
         }
@@ -300,15 +353,13 @@
         }
     }
 
-    const infoDialog = document.getElementById("infoDialog");
-    const infoDialog_onlyLook = document.getElementById("infoDialog_onlyLook");
-    const errorDialog = document.getElementById("errorDialog");
-    const deleteDialog = document.getElementById("deleteDialog");
+
 
     if (infoDialog) enableOutsideClickClose(infoDialog);
     if (infoDialog_onlyLook) enableOutsideClickClose(infoDialog_onlyLook);
     if (errorDialog) enableOutsideClickClose(errorDialog);
     if (deleteDialog) enableOutsideClickClose(deleteDialog);
+    if (inputDialog) enableOutsideClickClose(inputDialog);
 
     function openDeleteDialog(num, name, id) {
         deleteNum = num;
@@ -578,6 +629,9 @@ function updateMobilePanelsHeight() {
         document.getElementById("deleteDialog").close();
     });
 
+    document.getElementById("inputCancel").addEventListener("click", function () {
+        document.getElementById("inputDialog").close();
+    });
 
     showMobilePanel("results")
     enableSwipeSwitch()
