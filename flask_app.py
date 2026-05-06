@@ -1,29 +1,30 @@
+import secrets
+import time
 from threading import RLock
+
+from flask import Flask, jsonify, make_response, render_template, request
+from module.crypto_token import config
+from module.logger.logger import SimpleLogger
+from module.torrent_tracker.BD_offline.bd_offline import TorrentSQLiteCache
 from soupsieve.util import lower
 from telegram_app import Client
-from flask import Flask, jsonify, render_template, request
-from module.logger.logger import SimpleLogger
-from module.crypto_token import config
-import secrets
-from flask import make_response
-import time
-from module.torrent_tracker.BD_offline.bd_offline import TorrentSQLiteCache
 
 
 logger = SimpleLogger()
 app = Flask(__name__)
+
+# Global state variables
+CLIENT_COOKIE_NAME = "magnetsync_client_id"
+_CLIENT_TTL = 10000
 _last_error = ""
 _clients_by_id = {}
 _clients_lock = RLock()
 torrent_dowlander_lock = RLock()
-_CLIENT_TTL = 10000
 _downloads_cache = {
     "ts": 0.0,
     "items": [],
     "space_info": "NA"
 }
-
-CLIENT_COOKIE_NAME = "magnetsync_client_id"
 
 class WebClient(Client):
     def __init__(self):
@@ -57,14 +58,22 @@ class WebClient(Client):
                 data["Вес"] = torrent_info.size
             if torrent_info.short_category == "anime":
                 data["Сезон"] = str(torrent_info.season)
+
                 if torrent_info.qualiti:
                     data["Качество"] = str(torrent_info.qualiti)
+                    if not data["Качество"]:
+                        data["Качество"] = "NA"
 
             elif torrent_info.short_category == "music":
                 data["Кодек"] = str(torrent_info.qualiti)
 
             elif torrent_info.short_category == "cinema":
                 data["Качество"] = str(torrent_info.qualiti)
+
+            # for key, value in data.items():
+            #     if value is None or str(value).strip() == "":
+            #         data[key] = "NA"
+
             enable_magnet = torrent_info.enable_magnet
             out.append({
                 "num": num,
@@ -107,7 +116,6 @@ class WebClient(Client):
             out += f"{sp:.1f}/"
         out = f"{out[:-1]}TB"
         return out
-
 
     def web_get_active_torrents(self) -> list[dict]:
         if not self.torrent_client:
@@ -160,7 +168,6 @@ class WebClient(Client):
         torrent = self.list_torrent_info[num]
         base_path = self.true_name_jellyfin
         if torrent.short_category == "anime":
-            # Форматируем сезон с ведущим нулем (например, Season 01)
             return f"{base_path}/Season {self.list_torrent_info[num].season:02d}"
 
         return base_path

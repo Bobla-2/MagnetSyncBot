@@ -13,6 +13,8 @@ SEASON_RE = re.compile(
     r'(?:тв|tv)\s*-?\s*(\d{1,2})'   # ТВ-02, ТВ2, TV 03
     r'|'
     r'season\s*(\d{1,2})'          # Season 01
+    r'|'
+    r'сезон\s*:?\s*(\d{1,2})'       # Сезон: 2, сезон 2
     r')',
     re.IGNORECASE
 )
@@ -116,7 +118,12 @@ class TorrentInfo(ABCTorrentInfo):
     @property
     def season(self) -> int:
         m = SEASON_RE.search(self.__name)
-        return int(m.group(1) or m.group(2)) if m else 1
+        try:
+            season = next((g for g in m.groups() if g is not None), None)
+            s = int(season)
+        except:
+            s = 1
+        return s
 
     @property
     def qualiti(self) -> str:

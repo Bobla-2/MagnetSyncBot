@@ -105,11 +105,16 @@ class TorrentInfo(ABCTorrentInfo):
                 self.__short_categories = "other"
         return self.__short_categories
 
-
     @property
     def season(self) -> int:
         m = SEASON_RE.search(self.__name)
-        return int(m.group(1) or m.group(2)) if m else 1
+        try:
+            season = next((g for g in m.groups() if g is not None), None)
+            s = int(season)
+        except:
+            s = 1
+
+        return s
 
     @property
     def qualiti(self) -> str:

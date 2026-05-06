@@ -35,6 +35,12 @@ class TorrentManager(ABC):
 
     @abstractmethod
     def start_download(self, magnet_url: str, subfolder: str = '') -> str | int:
+        """
+        Запускает скачивание торрента.
+        :param magnet_url: str — Magnet-ссылка для скачивания.
+        :param subfolder: str — Подпапка для сохранения файлов (по умолчанию пустая строка).
+        :returns: str | int — ID или имя запущенного торрента.
+        """
         pass
 
     @abstractmethod
@@ -47,29 +53,43 @@ class TorrentManager(ABC):
 
     @abstractmethod
     def stop_download(self, id: int):
-        '''
-        :param id: id torrent.
-        '''
+        """
+        Останавливает скачивание указанного торрента.
+        :param id: int — Идентификатор торрента, который необходимо остановить.
+        """
         pass
 
     @abstractmethod
     def get_path(self, id: int) -> str:
-        '''
-        :param id: id torrent. default last id
-        :return: path
-        '''
+        """
+        Возвращает путь к файлам скачиваемого торрента.
+        :param id: int — Идентификатор торрента.
+        :returns: str — Полный путь к директории с файлами торрента.
+        """
         pass
 
     @abstractmethod
     def get_list_active_torrents(self) -> list[ActiveTorrentsInfo]:
+        """
+        Возвращает список активных (загружающихся) торрентов.
+        :returns: list[ActiveTorrentsInfo] — Список объектов с информацией об активных торрентах.
+        """
         pass
 
     @abstractmethod
     def delete_torrent(self, id: int) -> None:
+        """
+        Удаляет указанный торрент из списка.
+        :param id: int — Идентификатор торрента для удаления.
+        """
         pass
 
     @abstractmethod
     def free_spase(self) -> list[float]:
+        """
+        Возвращает информацию о свободном месте на дисках.
+        :returns: list[float] — Список значений свободного места (в байтах или других единицах, в зависимости от реализации).
+        """
         pass
 
 
@@ -84,12 +104,17 @@ class TransmissionManager(TorrentManager):
         # self.free_spase([])
 
     def free_spase(self) -> list[float]:
+        """
+        Возвращает список свободного места на дисках в ГБ.
+        """
         out = []
         for disk in config.TORRENT_DISK:
-            free_bytes = self.__client.free_space(disk)
-            free_gb = free_bytes / (1024 ** 4)
-            out.append(free_gb)
-        # print(f"Свободно: {free_gb:.2f} TB")
+            try:
+                free_bytes = self._client.free_space(disk)
+                free_gb = free_bytes / (1024 ** 4)
+                out.append(free_gb)
+            except Exception as e:
+                out.append(0.0)
         return out
 
     def start_download(self, magnet_url: str, folder: str = "") -> int:
@@ -172,7 +197,7 @@ class QBittorrentManager(TorrentManager):
             data = self.__client.sync.maindata()
             free_bytes = data.server_state.free_space_on_disk
             return [free_bytes / (1024 ** 4)]
-        except:
+        except Exception:
             return []
 
 

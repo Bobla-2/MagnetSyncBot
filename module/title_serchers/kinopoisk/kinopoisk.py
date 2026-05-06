@@ -1,10 +1,13 @@
-import requests
 import time
-from module.crypto_token import config
 from typing import List, Tuple
-from ..ABC import ABCDatabaseSearch
+
+import requests
+
+from module.crypto_token import config
 from module.logger.logger import SimpleLogger
 from module.other.singleton import singleton
+
+from ..ABC import ABCDatabaseSearch
 
 
 def _retries_retry_operation(func, *args, retries: int = 2, **kwargs):
@@ -34,7 +37,7 @@ class KinopoiskDatabaseSearch(ABCDatabaseSearch):
         """
         pass
 
-    def get_titles_by_id(self, aid) -> List[Tuple[str, str, str]]:
+    def get_titles_by_id(self, aid: int) -> List[Tuple[str, str, str]]:
         """
         Get titles by anidb id.
         :param aid: The ID of the anime.

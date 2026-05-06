@@ -8,37 +8,41 @@ class ABCTorrentInfo(ABC):
     Определяет интерфейс, который должен быть реализован в конкретных классах.
     """
 
+from abc import ABC, abstractmethod
+
+
+class ABCTorrentInfo(ABC):
+    __slots__ = ()
+    """
+    Абстрактный базовый класс для объектов, содержащих данные о торренте.
+    Определяет интерфейс, который должен быть реализован в конкретных классах.
+    """
+
     @property
     @abstractmethod
     def get_magnet(self) -> str:
-        """Ссылка на магнет торрента."""
+        """
+        Возвращает магнет-ссылку для торрента.
+
+        Returns:
+            str: Магнет-ссылка.
+        """
         pass
 
     @property
     @abstractmethod
     def size(self) -> str:
-        """Размер торрента (например, в MB, GB)."""
+        """
+        Возвращает размер торрента в строковом формате (например, '1.5 GB').
+
+        Returns:
+            str: Размер торрента.
+        """
         pass
 
     @property
     @abstractmethod
     def get_other_data(self) -> list:
-        pass
-
-    @property
-    @abstractmethod
-    def id_torrent(self) -> str | int:
-        pass
-
-    @id_torrent.setter
-    @abstractmethod
-    def id_torrent(self, id_: str | int):
-        pass
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Размер торрента (например, в MB, GB)."""
         pass
 
     @property

@@ -29,6 +29,7 @@ class ClientStatus:
         self.bot_msg_id = None
         self.num_torrents: int | None = None
 
+
 class Client:
     def __init__(self, torrent_settings: list = None):
         self.user_states: ClientStatus = ClientStatus()
@@ -163,7 +164,6 @@ class Client:
         return self.true_name_jellyfin
 
 
-
 class BotClient(Client):
     def __init__(self, context, update: Update, torrent_settings: list = None):
         self.context = context
@@ -264,7 +264,6 @@ class BotClient(Client):
         return text.translate(translation_table)
 
 
-
 class TelegramBot:
     MAX_RETRIES = 6
     num_list_torrent = 0
@@ -310,7 +309,6 @@ class TelegramBot:
             # ["🔍 Поиск"]
         ]
         return ReplyKeyboardMarkup(rep_keyboard, resize_keyboard=True)
-
 
     @staticmethod
     def get_keyboard_list_only_np(next_: bool, prev: bool, append_cl=""):

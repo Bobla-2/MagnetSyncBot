@@ -21,18 +21,26 @@ class AnimeDatabaseSearch(ABCDatabaseSearch):
         with self.lock:
             self.__anime_list = AnimeDatabaseLoader().load_or_parse_database()
 
-    def find_id_titles_id_by_request(self, search_title: str):
-        """Find the anime ID by title using fuzzy matching."""
+    def find_id_titles_id_by_request(self, search_title: str) -> Tuple[int, int]:
+        """Find the anime ID by title using fuzzy matching.
+
+        Returns:
+            Tuple containing (best_score, best_match_id).
+            If no match is found, returns (0, None).
+        """
         best_match = None
         best_score = 0
+        search_title_lower = search_title.lower()
 
         for anime in self.__anime_list:
             for title in anime['titles']:
-                similarity_score = fuzz.ratio(search_title.lower(), title['title'].lower())
+                title_lower = title['title'].lower()
+                similarity_score = fuzz.ratio(search_title_lower, title_lower)
 
                 if similarity_score > best_score:
                     best_score = similarity_score
                     best_match = anime['aid']
+
         return best_score, best_match
 
     def get_titles_by_id(self, aid) -> List[Tuple[str, str, str]]:
@@ -184,10 +192,7 @@ class AnimeDatabaseLoader:
             SimpleLogger().log(f"[AnimeDatabaseLoader] : An error occurred: {e}")
 
 
-if __name__ == '__main__':
-    db = AnimeDatabaseSearch()
-    search_title = "Crest the"
-    _, anime_id = db.find_id_titles_id_by_request(search_title)
-    SimpleLogger().log(f"[AnimeDatabase] : Anime ID for title '{search_title}':", anime_id)
-    SimpleLogger().log(f"[AnimeDatabase] : db.get_titles_by_id(anime_id)")
-
+# if __name__ == '__main__':
+# db = AnimeDatabaseSearch()
+# search_title = "Oshi no Ko"
+# print(db.get_names_and_url_title(search_title))
