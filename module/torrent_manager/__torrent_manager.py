@@ -110,7 +110,7 @@ class TransmissionManager(TorrentManager):
         out = []
         for disk in config.TORRENT_DISK:
             try:
-                free_bytes = self._client.free_space(disk)
+                free_bytes = self.__client.free_space(disk)
                 free_gb = free_bytes / (1024 ** 4)
                 out.append(free_gb)
             except Exception as e:

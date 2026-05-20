@@ -25,7 +25,7 @@
         .wrap {
             max-width: 1300px;
             margin: 0 auto;
-            padding: 16px;
+            padding: 6px;
         }
 
         h1, h2 {
@@ -34,8 +34,8 @@
 
         .toolbar {
             display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
+            gap: 6px;
+            margin-bottom: 6px;
             flex-wrap: wrap;
         }
 
@@ -147,7 +147,7 @@
 
         .download-title {
             font-weight: bold;
-            margin-bottom: 6px;
+            margin-bottom: 3px;
             word-break: break-word;
             line-height: 1.2;
             font-size: 15px;
@@ -280,6 +280,7 @@
             min-width: 193px;
             max-width: 193px;
             max-height: 50px;
+            font-size: 14px;
         }
 
         .btn-danger {
@@ -296,45 +297,45 @@
         }
 
 
-       .mobile-tabs {
-    display: none;
-    margin-bottom: 12px;
-    padding: 4px;
-    border: 1px solid #cfcfcf;
-    border-radius: 12px;
-    background: #ededed;
-    gap: 4px;
-}
-
-.mobile-tab {
-    flex: 1;
-    border: 0;
-    border-radius: 9px;
-    background: transparent;
-    color: #444;
-    font-weight: bold;
-    padding: 10px 12px;
-    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.mobile-tab:hover {
-    background: transparent;
-}
-
-.mobile-tab:active {
-    background: transparent;
-    transform: none;
-}
-
-.mobile-tab.active {
-    background: #fff;
-    color: #111;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-}
-
-@media (max-width: 900px) {
     .mobile-tabs {
-        display: flex;
+        display: none;
+        margin-bottom: 8px;
+        padding: 4px;
+        border: 1px solid #cfcfcf;
+        border-radius: 12px;
+        background: #ededed;
+        gap: 4px;
+    }
+
+    .mobile-tab {
+        flex: 1;
+        border: 0;
+        border-radius: 9px;
+        background: transparent;
+        color: #444;
+        font-weight: bold;
+        padding: 10px 12px;
+        transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .mobile-tab:hover {
+        background: transparent;
+    }
+
+    .mobile-tab:active {
+        background: transparent;
+        transform: none;
+    }
+
+    .mobile-tab.active {
+        background: #fff;
+        color: #111;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    }
+
+    @media (max-width: 900px) {
+        .mobile-tabs {
+            display: flex;
     }
 
     .mobile-panels {
@@ -342,45 +343,46 @@
         position: relative;
         overflow: hidden;
         width: 100%;
-        min-height: 420px;
+        min-height: 90vh;
+        min-height: 90dvh;
     }
 
     .mobile-panels .panel {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    min-width: 100%;
-    margin: 0;
-    transition: transform 0.25s ease;
-    will-change: transform;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-}
-
-.panel-mobile-active {
-    transform: translate3d(0, 0, 0);
-    pointer-events: auto;
-    z-index: 2;
-}
-
-.panel-mobile-left {
-    transform: translate3d(-100%, 0, 0);
-    pointer-events: none;
-    z-index: 1;
-}
-
-.panel-mobile-right {
-    transform: translate3d(100%, 0, 0);
-    pointer-events: none;
-    z-index: 1;
-}
-
-    .wrap,
-    body {
-        overflow-x: hidden;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        min-width: 100%;
+        margin: 0;
+        transition: transform 0.25s ease;
+        will-change: transform;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
     }
-}
+
+    .panel-mobile-active {
+        transform: translate3d(0, 0, 0);
+        pointer-events: auto;
+        z-index: 2;
+    }
+
+    .panel-mobile-left {
+        transform: translate3d(-100%, 0, 0);
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    .panel-mobile-right {
+        transform: translate3d(100%, 0, 0);
+        pointer-events: none;
+        z-index: 1;
+    }
+
+        .wrap,
+        body {
+            overflow-x: hidden;
+        }
+    }
     </style>
 </head>
 <body>

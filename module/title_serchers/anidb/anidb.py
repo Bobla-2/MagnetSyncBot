@@ -167,16 +167,31 @@ class AnimeDatabaseLoader:
             pickle.dump(anime_list, f)
         return True
 
-    def __download_database_xml(self, url='http://anidb.net/api/anime-titles.xml.gz'):
+    def __download_database_xml(self):
         """Update the database by downloading the XML file, extracting it, and updating the cache."""
         SimpleLogger().log(f"[AnimeDatabaseLoader] : Downloading the XML file...")
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+
+        url = "https://anidb.net/api/anime-titles.xml.gz"
+
+        params = {
+            "client": "magnetsyncbot",
+            "clientver": "1",
+            "protover": "1",
         }
+
+        headers = {
+            "User-Agent": "magnetsyncbot/1"
+        }
+
         try:
-            proxies = {'http': proxy,
-                       'https': proxy}
-            response = requests.get(url, headers=headers, proxies=proxies, timeout=(10, 20))
+            # proxies = {'http': proxy,
+            #            'https': proxy}
+            response = requests.get(
+                url,
+                params=params,
+                headers=headers,
+                timeout=(10,20)
+            )
             if response.status_code == 200:
                 with open(self.__gz_file_path, 'wb') as f:
                     f.write(response.content)

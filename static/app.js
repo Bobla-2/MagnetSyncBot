@@ -418,7 +418,7 @@ function openInputDialog(title, preset = "") {
     if (!btn) return;
 
     if (currentDefaultJlName) {
-        btn.textContent = window.innerWidth <= 900 ? `Подск.: ${currentDefaultJlName}` : `Подсказка: ${currentDefaultJlName}`;
+        btn.textContent = window.innerWidth <= 900 ? `${currentDefaultJlName}` : `${currentDefaultJlName}`;
         btn.disabled = false;
     } else {
         btn.textContent = "Подсказка";
@@ -444,22 +444,22 @@ function openInputDialog(title, preset = "") {
     }
 
     function setPanelState(panel, state) {
-    panel.classList.remove(
-        "panel-mobile-active",
-        "panel-mobile-left",
-        "panel-mobile-right"
-    );
-    panel.classList.add(state);
-}
-
-function updateMobilePanelsHeight() {
-    if (!isMobileView()) {
-        const wrap = document.querySelector(".mobile-panels");
-        if (wrap) {
-            wrap.style.height = "";
-        }
-        return;
+        panel.classList.remove(
+            "panel-mobile-active",
+            "panel-mobile-left",
+            "panel-mobile-right"
+        );
+        panel.classList.add(state);
     }
+
+    function updateMobilePanelsHeight() {
+        if (!isMobileView()) {
+            const wrap = document.querySelector(".mobile-panels");
+            if (wrap) {
+                wrap.style.height = "";
+            }
+            return;
+        }
 
     const wrap = document.querySelector(".mobile-panels");
     const activePanel = document.querySelector(".panel-mobile-active");

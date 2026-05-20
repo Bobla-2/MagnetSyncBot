@@ -90,6 +90,7 @@ class KinopoiskDatabaseSearch(ABCDatabaseSearch):
             return (["Ошибка"], "Кинопоиск")
 
 
-
 if __name__ == '__main__':
     p = KinopoiskDatabaseSearch().get_names_and_url_title("веном 2021")
+
+
